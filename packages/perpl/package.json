@@ -1,0 +1,20 @@
+{
+  "name": "@app/perpl",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Perpl perps on Monad: markets, accounts, positions, order math and transaction builders. No database, no app config.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "viem": "^2.57.4"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "@types/node": "^26.6.5"
+  }
+}
