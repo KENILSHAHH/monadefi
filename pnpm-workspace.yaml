@@ -1,0 +1,7 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+  - "!apps/mobile"
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
