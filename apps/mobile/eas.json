@@ -1,0 +1,19 @@
+{
+  "cli": { "version": ">= 16.0.0", "appVersionSource": "remote" },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": { "EXPO_PUBLIC_API_URL": "https://api.3-83-183-92.sslip.io", "EXPO_PUBLIC_RP_ID": "app.3-83-183-92.sslip.io" }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": { "EXPO_PUBLIC_API_URL": "https://api.3-83-183-92.sslip.io", "EXPO_PUBLIC_RP_ID": "app.3-83-183-92.sslip.io" }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": { "EXPO_PUBLIC_API_URL": "https://api.3-83-183-92.sslip.io", "EXPO_PUBLIC_RP_ID": "app.3-83-183-92.sslip.io" }
+    }
+  },
+  "submit": { "production": {} }
+}
