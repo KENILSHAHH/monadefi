@@ -1,0 +1,337 @@
+"use client";
+
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowDownToLine, ArrowUpFromLine, CalendarClock, Check, ExternalLink, History, Loader2, LogIn, LogOut, Menu, Plus, Settings, ShieldCheck, Trash2, UserRound, Wallet } from "lucide-react";
+import { useEffect, useState } from "react";
+import { api, post, short, usd, type Balances as BalancesData, type Guard, type Me, type WithdrawRequest, type WithdrawResult } from "@/lib/api";
+import { DepositModal } from "./DepositModal";
+import { MenuButton, MenuContext, MenuItem } from "./MenuItem";
+import type { useSession } from "@/lib/session";
+
+export function Sidebar({ session, onNewChat, onOpenChat, activeChatId }: { session: ReturnType<typeof useSession>; onNewChat: () => void; onOpenChat: (id: string) => void; activeChatId: string | null }) {
+  const { me, signedIn } = session;
+  const [collapsed, setCollapsed] = useState(false);
+  const [depositing, setDepositing] = useState(false);
+  // The choice stays after a reload. It is read after the first render, so the server and the browser draw the same page.
+  useEffect(() => setCollapsed(localStorage.getItem("menu-collapsed") === "1"), []);
+  const set = (value: boolean) => {
+    setCollapsed(value);
+    localStorage.setItem("menu-collapsed", value ? "1" : "0");
+  };
+
+  return (
+    <MenuContext.Provider value={{ collapsed, expand: () => set(false) }}>
+    <aside className={`flex h-full shrink-0 flex-col border-r border-line bg-panel/60 backdrop-blur-xl transition-[width] duration-200 ${collapsed ? "w-[64px]" : "w-[272px]"}`}>
+      <div className={`flex items-center gap-2 px-3 pt-4 pb-3 ${collapsed ? "justify-center" : ""}`}>
+        <button onClick={() => set(!collapsed)} title={collapsed ? "Open the menu" : "Close the menu"} aria-label={collapsed ? "Open the menu" : "Close the menu"} aria-expanded={!collapsed} className="grid size-9 shrink-0 place-items-center rounded-lg text-dim hover:bg-raised hover:text-ink">
+          <Menu className="size-5" />
+        </button>
+        {!collapsed && <div className="text-[15px] font-semibold tracking-tight">Mona-DeFi</div>}
+      </div>
+
+      <button onClick={onNewChat} title="New chat" aria-label="New chat" className={collapsed ? "mx-auto mb-3 grid size-10 place-items-center rounded-lg border border-line text-dim hover:bg-raised hover:text-ink" : "mx-3 mb-3 flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm text-dim hover:bg-raised hover:text-ink"}>
+        <Plus className="size-4" /> {!collapsed && "New chat"}
+      </button>
+
+      <div className={`flex-1 space-y-1 overflow-y-auto pb-4 ${collapsed ? "px-2" : "px-3"}`}>
+        {collapsed && !signedIn && (
+          <button onClick={() => (session.authenticated ? set(false) : session.signIn())} title="Sign in" aria-label="Sign in" className="mx-auto grid size-10 place-items-center rounded-lg bg-accent text-white hover:brightness-110">
+            {session.authenticated ? <Loader2 className="size-4 animate-spin" /> : <LogIn className="size-4" />}
+          </button>
+        )}
+
+        {!collapsed && !session.authenticated && (
+          <Section title="Account">
+            <button disabled={!session.ready} onClick={session.signIn} className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white hover:brightness-110 disabled:opacity-60">
+              Sign in or sign up
+            </button>
+          </Section>
+        )}
+
+        {!collapsed && session.authenticated && !signedIn && (
+          <Section title="Account">
+            {session.error ? (
+              <>
+                <p className="text-[12px] text-bad">{session.error}</p>
+                <button onClick={session.signIn} className="mt-2 flex w-full items-center justify-center rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white hover:brightness-110">
+                  Try again
+                </button>
+              </>
+            ) : (
+              <div className="flex items-center gap-2 text-[12.5px] text-dim">
+                <Loader2 className="size-3.5 animate-spin" /> Preparing your wallet
+              </div>
+            )}
+            <button onClick={session.signOut} className="mt-2 text-[12px] text-faint hover:text-ink">
+              Sign out
+            </button>
+          </Section>
+        )}
+
+        {signedIn && me && (
+          <>
+            {collapsed ? (
+              <button onClick={() => set(false)} title={session.label ?? "Signed in"} aria-label="Account" className="mx-auto grid size-10 place-items-center rounded-lg text-dim hover:bg-raised hover:text-ink">
+                <UserRound className="size-[18px]" />
+              </button>
+            ) : (
+              <div className="flex items-center gap-3 px-2.5 py-2">
+                <span className="grid size-7 shrink-0 place-items-center rounded-md bg-raised text-dim">
+                  <UserRound className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[13px] text-dim">{session.label ?? "Signed in"}</span>
+                <button onClick={session.signOut} title="Sign out" className="text-faint hover:text-ink">
+                  <LogOut className="size-3.5" />
+                </button>
+              </div>
+            )}
+            <Balances />
+            <MenuButton icon={ArrowDownToLine} label="Deposit" onClick={() => setDepositing(true)} />
+            <WalletSettings me={me} onSaved={session.refresh} />
+            <Withdraw me={me} />
+            <PastChats onOpen={onOpenChat} activeId={activeChatId} />
+            <Jobs />
+            <Guards />
+          </>
+        )}
+      </div>
+
+    </aside>
+    {depositing && me && <DepositModal me={me} onClose={() => setDepositing(false)} />}
+    </MenuContext.Provider>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <h3 className="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-wider text-faint">{title}</h3>
+      <div className="rounded-lg border border-line bg-bg/40 p-3">{children}</div>
+    </section>
+  );
+}
+
+/** The one wallet of the user on Monad: its balance in USD. A click copies the address. */
+function Balances() {
+  const { data } = useQuery({ queryKey: ["balances"], queryFn: () => api<BalancesData>("/billing/balances"), refetchInterval: 15_000 });
+  const [copied, setCopied] = useState(false);
+  return (
+    <MenuItem icon={Wallet} label="Wallet" value={!data ? "…" : data.usd === null ? "not read" : usd(data.usd)}>
+      {!data ? <span className="text-[11.5px] text-faint">…</span> : (
+        <button
+          onClick={async () => { await navigator.clipboard.writeText(data.address); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+          title={`Copy ${data.address}`}
+          className="flex w-full items-center justify-between gap-2 rounded-md py-1 text-[11.5px] text-faint hover:text-dim"
+        >
+          <span className="flex min-w-0 items-center gap-1.5">
+            <img src="/icons/chain-monad.svg" alt="" className="size-4 rounded-full" />
+            <span className="text-dim">Monad</span>
+            <span className="truncate font-mono">{short(data.address)}</span>
+          </span>
+          {copied ? <Check className="size-3 shrink-0 text-good" /> : <span className="shrink-0 font-mono tabular-nums">{data.usd === null ? "—" : usd(data.usd)}</span>}
+        </button>
+      )}
+    </MenuItem>
+  );
+}
+
+/** Auto-execute and the largest action in USD. POST /wallet/settings stores them. */
+function WalletSettings({ me, onSaved }: { me: Me; onSaved: () => void }) {
+  const [limit, setLimit] = useState(String(me.wallet.maxActionUsd));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => setLimit(String(me.wallet.maxActionUsd)), [me.wallet.maxActionUsd]);
+  const save = async (body: { autoExecute?: boolean; maxActionUsd?: number }) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await post("/wallet/settings", body);
+      onSaved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message.split("\n")[0]! : "The settings were not saved");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const limitValue = Number(limit);
+  const limitChanged = limitValue > 0 && limitValue !== me.wallet.maxActionUsd;
+  return (
+    <MenuItem icon={Settings} label="Settings" value={me.wallet.autoExecute ? "auto" : undefined}>
+      <label className="flex items-center justify-between gap-2 py-1 text-[12.5px]">
+        <span>Auto-execute actions</span>
+        <input type="checkbox" checked={me.wallet.autoExecute} disabled={busy} onChange={(e) => save({ autoExecute: e.target.checked })} className="accent-[var(--color-accent)]" />
+      </label>
+      <p className="text-[11.5px] leading-snug text-faint">When on, the agent sends actions up to the limit without asking you first.</p>
+      <div className="mt-2 flex items-center gap-2 text-[12.5px]">
+        <span className="shrink-0">Limit (USD)</span>
+        <input value={limit} onChange={(e) => setLimit(e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" className="w-full min-w-0 rounded-md border border-line bg-raised px-2 py-1 font-mono text-[12.5px] outline-none focus:border-faint" />
+        <button disabled={busy || !limitChanged} onClick={() => save({ maxActionUsd: limitValue })} className="shrink-0 text-accent hover:brightness-125 disabled:opacity-40">
+          {busy ? <Loader2 className="size-3 animate-spin" /> : "Save"}
+        </button>
+      </div>
+      {error && <p className="mt-2 text-[11.5px] text-bad">{error}</p>}
+    </MenuItem>
+  );
+}
+
+/** Send USDC or MON from the agent wallet to the sign-in address on Monad. */
+function Withdraw({ me }: { me: Me }) {
+  const qc = useQueryClient();
+  const [asset, setAsset] = useState<WithdrawRequest["asset"]>("USDC");
+  const [amount, setAmount] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ ok: boolean; text: string; href?: string } | null>(null);
+  const withdraw = async () => {
+    setBusy(true);
+    setNote(null);
+    try {
+      const res = await post<WithdrawResult>("/wallet/withdraw", { chain: "monad", asset, amount: Number(amount) } satisfies WithdrawRequest);
+      setNote({ ok: true, text: `Sent ${amount} ${asset} to ${short(res.to)}.`, href: res.explorer });
+      setAmount("");
+      for (const k of ["balances", "positions"]) qc.invalidateQueries({ queryKey: [k] });
+    } catch (e) {
+      setNote({ ok: false, text: e instanceof Error ? e.message.split("\n")[0]! : "The withdrawal failed" });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <MenuItem icon={ArrowUpFromLine} label="Withdraw">
+      <p className="text-[11.5px] leading-snug text-faint">To your sign-in address <span className="font-mono">{short(me.address)}</span> on Monad.</p>
+      <div className="mt-2 flex gap-1.5">
+        {(["USDC", "MON"] as const).map((a) => (
+          <button key={a} onClick={() => setAsset(a)} aria-pressed={asset === a} className={`rounded-md border px-2 py-0.5 text-[12px] ${asset === a ? "border-accent bg-accent/15 text-ink" : "border-line text-dim hover:text-ink"}`}>
+            {a}
+          </button>
+        ))}
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <input value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" placeholder={`Amount of ${asset}`} className="w-full min-w-0 rounded-md border border-line bg-raised px-2 py-1 font-mono text-[12.5px] outline-none placeholder:text-faint focus:border-faint" />
+        <button disabled={busy || !(Number(amount) > 0)} onClick={withdraw} className="shrink-0 text-[12.5px] text-accent hover:brightness-125 disabled:opacity-40">
+          {busy ? <Loader2 className="size-3 animate-spin" /> : "Send"}
+        </button>
+      </div>
+      {note && (
+        <p className={`mt-2 text-[11.5px] ${note.ok ? "text-good" : "text-bad"}`}>
+          {note.text}{" "}
+          {note.href && <a href={note.href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 underline">Explorer <ExternalLink className="size-3" /></a>}
+        </p>
+      )}
+    </MenuItem>
+  );
+}
+
+interface Job {
+  id: string; name: string; conditionText: string; status: string; lastValue: number | null; lastCheck: string | null;
+  result: { error?: string; firedAt?: string } | null;
+  repeat: { everySeconds: number; times: number; done: number; next: string | null } | null;
+}
+
+const every = (s: number) => (s % 86_400 === 0 ? `${s / 86_400 === 1 ? "daily" : `every ${s / 86_400} days`}` : s % 3600 === 0 ? `every ${s / 3600} h` : `every ${Math.round(s / 60)} min`);
+const when = (iso: string) => new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+
+/** Actions that the server runs by itself when their condition is true, once or repeated. */
+function Jobs() {
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ["jobs"], queryFn: () => api<Job[]>("/jobs"), refetchInterval: 10_000 });
+  const color: Record<string, string> = { active: "text-good", running: "text-warn", done: "text-dim", failed: "text-bad", cancelled: "text-faint", expired: "text-faint" };
+  return (
+    <MenuItem icon={CalendarClock} label="Scheduled jobs" badge={data?.filter((j) => j.status === "active").length}>
+      {!data ? (
+        <p className="text-[12px] text-faint">…</p>
+      ) : data.length === 0 ? (
+        <p className="text-[12px] leading-snug text-faint">No scheduled jobs. Ask the agent, for example: "buy 5 USD of MON every day".</p>
+      ) : (
+        data.slice(0, 8).map((j) => (
+          <div key={j.id} className="border-b border-line py-1.5 text-[12.5px] last:border-0" title={j.result?.error ?? j.name}>
+            <div className="flex items-start justify-between gap-2">
+              <span className="min-w-0">{j.name}</span>
+              {j.status === "active" ? (
+                <button onClick={async () => { await api(`/jobs/${j.id}`, { method: "DELETE" }); qc.invalidateQueries({ queryKey: ["jobs"] }); }} className="shrink-0 text-[11.5px] text-faint hover:text-bad">
+                  Cancel
+                </button>
+              ) : (
+                <span className={`shrink-0 text-[11.5px] ${color[j.status] ?? "text-faint"}`}>{j.status}</span>
+              )}
+            </div>
+            <div className="text-[11.5px] text-faint">
+              {j.repeat ? `${every(j.repeat.everySeconds)} · ${j.repeat.done}/${j.repeat.times} runs` : j.conditionText}
+              {j.status === "active" && j.repeat?.next && ` · next ${when(j.repeat.next)}`}
+              {j.status === "active" && !j.repeat && j.lastValue !== null && ` · now ${j.lastValue.toLocaleString("en-US", { maximumFractionDigits: 3 })}`}
+            </div>
+            {j.result?.error && <div className="truncate text-[11.5px] text-bad">{j.result.error}</div>}
+          </div>
+        ))
+      )}
+    </MenuItem>
+  );
+}
+
+function Guards() {
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ["guards"], queryFn: () => api<Guard[]>("/guards"), refetchInterval: 5_000 });
+  const active = (data ?? []).filter((g) => g.status === "active" || g.status === "triggered");
+  return (
+    <MenuItem icon={ShieldCheck} label="Liquidation guards" badge={active.length}>
+      {active.length === 0 && <p className="text-[12px] leading-snug text-faint">No guards. Ask the agent to protect a Perpl position from liquidation.</p>}
+      {active.map((g) => (
+        <div key={g.id} className="flex items-start gap-2 py-1 text-[12.5px]">
+          <ShieldCheck className={`mt-0.5 size-3.5 shrink-0 ${g.status === "triggered" ? "text-warn" : "text-good"}`} />
+          <div className="flex-1">
+            <div>{g.params.market} on Perpl</div>
+            <div className="text-faint">{`${g.lastValue?.toFixed(1) ?? "—"}% to liquidation · acts at ${g.params.triggerDistancePct}%`}</div>
+          </div>
+          <button onClick={async () => { await api(`/guards/${g.id}`, { method: "DELETE" }); qc.invalidateQueries({ queryKey: ["guards"] }); }} className="text-[11.5px] text-faint hover:text-bad">
+            Stop
+          </button>
+        </div>
+      ))}
+    </MenuItem>
+  );
+}
+
+interface ChatSummary { id: string; title: string; updatedAt: string }
+
+const day = (iso: string) => {
+  const d = new Date(iso);
+  const days = Math.floor((Date.now() - d.getTime()) / 86_400_000);
+  return days < 1 && d.getDate() === new Date().getDate() ? "Today" : days < 2 ? "Yesterday" : days < 7 ? "Last 7 days" : "Older";
+};
+
+/** The chats of the user, newest first, in groups by day. A click opens one. */
+function PastChats({ onOpen, activeId }: { onOpen: (id: string) => void; activeId: string | null }) {
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ["chats"], queryFn: () => api<ChatSummary[]>("/chats"), refetchInterval: 30_000 });
+  const groups = new Map<string, ChatSummary[]>();
+  for (const c of data ?? []) groups.set(day(c.updatedAt), [...(groups.get(day(c.updatedAt)) ?? []), c]);
+  return (
+    <MenuItem icon={History} label="Previous chats" badge={data?.length}>
+      {!data ? (
+        <p className="text-[12px] text-faint">…</p>
+      ) : data.length === 0 ? (
+        <p className="text-[12px] leading-snug text-faint">No chats yet. Your chats show here.</p>
+      ) : (
+        [...groups].map(([title, chats]) => (
+          <div key={title} className="mb-2">
+            <p className="mb-1 px-1 text-[11px] font-medium uppercase tracking-wider text-faint">{title}</p>
+            {chats.map((c) => (
+              <div key={c.id} className={`group/chat flex items-center rounded-md hover:bg-raised ${c.id === activeId ? "bg-raised" : ""}`}>
+                <button onClick={() => onOpen(c.id)} title={c.title} className="min-w-0 flex-1 truncate px-2 py-1.5 text-left text-[12.5px]">
+                  {c.title}
+                </button>
+                <button
+                  onClick={async () => { await api(`/chats/${c.id}`, { method: "DELETE" }); qc.invalidateQueries({ queryKey: ["chats"] }); }}
+                  title="Delete this chat"
+                  aria-label="Delete this chat"
+                  className="mr-1 hidden shrink-0 rounded p-1 text-faint hover:text-bad group-hover/chat:block"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ))
+      )}
+    </MenuItem>
+  );
+}
