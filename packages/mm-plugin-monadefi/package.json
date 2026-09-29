@@ -1,0 +1,70 @@
+{
+  "name": "mm-plugin-monadefi",
+  "version": "0.1.0",
+  "description": "MetaMask Agent Wallet (mm) plugin: Nansen-aware Perpl perps trading on Monad, any-chain funding, stops and rebalancing. Every transaction goes through Agent Wallet signing, policy and MFA.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "oclif-plugin",
+    "metamask",
+    "agent-wallet",
+    "perpl",
+    "monad",
+    "nansen"
+  ],
+  "files": [
+    "dist",
+    "oclif.manifest.json",
+    "skills",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && oclif manifest",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "prepack": "tsup && oclif manifest"
+  },
+  "oclif": {
+    "bin": "mm",
+    "commands": "./dist/commands",
+    "topicSeparator": " ",
+    "topics": {
+      "monadefi": {
+        "description": "Nansen-aware Perpl perps on Monad: markets, positions, risk, open, close, protect, rebalance, fund"
+      },
+      "monadefi:config": {
+        "description": "Plugin settings (Nansen key, Aurora key, default slippage)"
+      }
+    }
+  },
+  "mm": {
+    "schemaVersion": 1,
+    "minCliVersion": ">=6.2.0",
+    "capabilities": [],
+    "commands": [
+      { "id": "monadefi:markets", "capabilities": [], "dataAccess": [], "targetChains": [143] },
+      { "id": "monadefi:positions", "capabilities": ["wallet-read"], "dataAccess": ["accounts", "balances"], "targetChains": [143] },
+      { "id": "monadefi:risk", "capabilities": ["wallet-read"], "dataAccess": ["accounts"], "targetChains": [143] },
+      { "id": "monadefi:open-perpl", "capabilities": ["wallet-read", "wallet-submit"], "dataAccess": ["accounts", "balances"], "targetChains": [143] },
+      { "id": "monadefi:close-perpl", "capabilities": ["wallet-read", "wallet-submit"], "dataAccess": ["accounts", "balances"], "targetChains": [143] },
+      { "id": "monadefi:protect", "capabilities": ["wallet-read", "wallet-submit"], "dataAccess": ["accounts", "balances"], "targetChains": [143] },
+      { "id": "monadefi:rebalance", "capabilities": ["wallet-read", "wallet-submit"], "dataAccess": ["accounts", "balances"], "targetChains": [143] },
+      { "id": "monadefi:fund", "capabilities": ["wallet-read", "wallet-submit"], "dataAccess": ["accounts", "balances", "tokens"], "targetChains": [1, 10, 56, 137, 143, 8453, 42161, 43114] },
+      { "id": "monadefi:config:set", "capabilities": [], "dataAccess": [] },
+      { "id": "monadefi:config:get", "capabilities": [], "dataAccess": [] }
+    ]
+  },
+  "peerDependencies": {
+    "@metamask/agent-wallet": ">=6.2.0"
+  },
+  "devDependencies": {
+    "@metamask/agent-wallet": "7.2.0",
+    "@types/node": "^22.0.0",
+    "oclif": "^4",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "viem": "^2.57.4",
+    "vitest": "^3.2.0",
+    "zod": "^4.1.0"
+  }
+}
