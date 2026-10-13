@@ -22,6 +22,7 @@ export * as session from "./session";
 export * as gasless from "./relay";
 export { buildTools } from "./tools/index";
 export * as risk from "@app/risk";
+export * as voice from "./voice";
 export * as aurora from "./adapters/aurora";
 export * as auroraDeposits from "./auroraDeposits";
 export * as auroraWorker from "./auroraWorker";

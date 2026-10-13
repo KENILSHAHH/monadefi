@@ -24,7 +24,7 @@ import { config } from "./config";
 import { sql } from "./db";
 import { CHAINS, type ChainKey } from "./registry/chains";
 import { isMeraUser, legacyAccount, publicClient, viemChain, walletAccount } from "./wallet";
-import { wrapSessionTransactions } from "./session";
+import { isUpgraded as sessionUpgraded, sessionChainRedeem } from "./session";
 
 export const SPONSORED_CHAINS = ["monad"] as const satisfies readonly ChainKey[];
 /** Deterministic deployment proxy (CREATE2). A delegated wallet cannot use CREATE through `execute`, so a deployment goes through it. */
@@ -129,17 +129,17 @@ async function buildSponsored(userId: string, chain: ChainKey, txs: EvmTx[], opt
  * result (for example a swap route that fails when the caller is an account with code), so sponsored chains use this.
  */
 export async function simulateSponsored(userId: string, chain: ChainKey, txs: EvmTx[]): Promise<{ ok: boolean; gas: string | null; error: string | null }> {
-  // A Mera wallet: simulate the session path, the agent key redeeming the delegations, exactly as it is sent.
-  let legacy = false;
+  // A Mera wallet: simulate the session chain exactly as the sponsor sends it.
   if (await isMeraUser(userId)) {
     try {
-      txs = await wrapSessionTransactions(userId, txs);
+      const { to, data } = await sessionChainRedeem(userId, txs, sponsor().address);
+      const gas = await withRetry(() => publicClient(chain).estimateGas({ account: sponsor(), to, data }));
+      return { ok: true, gas: gas.toString(), error: null };
     } catch (err) {
-      return { ok: false, gas: null, error: err instanceof Error ? err.message : String(err) };
+      return { ok: false, gas: null, error: (err instanceof Error ? err.message : String(err)).split("\n").slice(0, 3).join(" ").slice(0, 400) };
     }
-    legacy = true;
   }
-  const { owner, manager, implementation, reader, relayer, data } = await buildSponsored(userId, chain, txs, { legacy });
+  const { owner, manager, implementation, reader, relayer, data } = await buildSponsored(userId, chain, txs);
   // A wallet that is not upgraded yet gets the upgrade with its first sponsored transaction. The simulation sets that code first.
   const code = await reader.getCode({ address: owner.address });
   const upgraded = code?.toLowerCase() === `0xef0100${implementation.slice(2).toLowerCase()}`;
@@ -158,6 +158,22 @@ export async function sendSponsored(userId: string, chain: ChainKey, txs: EvmTx[
   const [used] = await sql()<{ n: string }[]>`select count(*) as n from sponsored_txs where user_id = ${userId} and created_at > now() - interval '24 hours'`;
   if (Number(used?.n ?? 0) >= limit) throw new Error(`The daily limit of ${limit} sponsored transactions is reached. Try again tomorrow.`);
 
+  // A Mera wallet: the sponsor redeems the session chain [agent key -> sponsor, wallet -> agent key] in one call.
+  if (!opts.legacy && (await isMeraUser(userId))) {
+    if (!(await sessionUpgraded(userId))) throw new Error("The wallet is not set up for trading yet. Open the app once so it can finish the setup.");
+    const { to, data } = await sessionChainRedeem(userId, txs, sponsor().address);
+    const reader = publicClient(chain);
+    const relayer = createWalletClient({ account: sponsor(), chain: viemChain(chain), transport: http() });
+    return inOrder(chain, async () => {
+      const gas = await withRetry(() => reader.estimateGas({ account: relayer.account, to, data }));
+      // Monad charges the gas limit, so the margin is small.
+      const hash = await relayer.sendTransaction({ to, data, gas: (gas * 12n) / 10n });
+      const receipt = await reader.waitForTransactionReceipt({ hash, timeout: 180_000 });
+      await sql()`insert into sponsored_txs (user_id, chain, hash, gas_cost_wei, success) values (${userId}, ${chain}, ${hash}, ${(receipt.gasUsed * receipt.effectiveGasPrice).toString()}, ${receipt.status === "success"})`;
+      if (receipt.status !== "success") throw new Error(`The sponsored transaction ${hash} reverted. Nothing changed.`);
+      return { hash, block: Number(receipt.blockNumber), gasUsed: receipt.gasUsed.toString(), deployed: txs.map(() => null) };
+    });
+  }
   const { owner, manager, implementation, reader, relayer, data, deployed } = await buildSponsored(userId, chain, txs, opts);
 
   return inOrder(chain, async () => {

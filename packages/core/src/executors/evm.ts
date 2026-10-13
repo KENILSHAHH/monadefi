@@ -13,7 +13,8 @@ export async function sendTransactions(userId: string, chain: ChainKey, txs: Evm
   // A Mera wallet acts through its session: the agent key redeems the delegations, and the sponsor pays the gas.
   if (!opts.legacy && (await isMeraUser(userId))) {
     if (chain !== "monad") throw new Error("A passkey wallet trades through its session on Monad only. Do this in the app.");
-    return sendTransactions(userId, chain, await wrapSessionTransactions(userId, txs), { legacy: true });
+    // With the sponsor, sendSponsored redeems the session chain. Without it, the agent key redeems and pays its own gas.
+    if (!isSponsored(chain)) return sendTransactions(userId, chain, await wrapSessionTransactions(userId, txs), { legacy: true });
   }
   // With gas sponsorship, the sponsor sends one transaction and the wallet of the user makes all the calls in it. They succeed or fail together.
   if (isSponsored(chain)) {

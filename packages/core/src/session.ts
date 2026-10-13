@@ -11,7 +11,7 @@
 import { randomBytes } from "node:crypto";
 import { createDelegation, createExecution, ExecutionMode, getSmartAccountsEnvironment, ScopeType } from "@metamask/smart-accounts-kit";
 import { DelegationManager } from "@metamask/smart-accounts-kit/contracts";
-import { SIGNABLE_DELEGATION_TYPED_DATA } from "@metamask/smart-accounts-kit/utils";
+import { createCaveatBuilder, hashDelegation, SIGNABLE_DELEGATION_TYPED_DATA } from "@metamask/smart-accounts-kit/utils";
 import { createWalletClient, encodeFunctionData, http, pad, parseAbi, recoverMessageAddress, recoverTypedDataAddress, toFunctionSelector, type Address, type Hex, type SignedAuthorization } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { AUSD, PERPL_EXCHANGE } from "./adapters/perpl";
@@ -20,7 +20,7 @@ import { config } from "./config";
 import { signToken, verifyToken } from "./crypto";
 import { ensureUser, sql } from "./db";
 import { CHAINS } from "./registry/chains";
-import { getOrCreateWallet, publicClient, viemChain } from "./wallet";
+import { getOrCreateWallet, legacyAccount, publicClient, viemChain } from "./wallet";
 
 export { isMeraUser } from "./wallet";
 
@@ -181,11 +181,8 @@ export async function revokeSession(userId: string) {
   return { revoked: n.length > 0, calls };
 }
 
-/**
- * Wrap calls of the Mera wallet into redeemDelegations calls that the agent key makes. A call outside the session scope is refused here
- * with a plain reason; the enforcers would refuse it on-chain anyway.
- */
-export async function wrapSessionTransactions(userId: string, txs: EvmTx[]): Promise<EvmTx[]> {
+/** The active session delegation that covers each call. A call outside the session scope is refused with a plain reason. */
+async function sessionRowsFor(userId: string, txs: EvmTx[]): Promise<Row[]> {
   const live = (await rows(userId)).filter((r) => r.status === "active" && r.signature && r.expires_at.getTime() > Date.now());
   if (!live.length) throw new Error("Trading is not turned on for this wallet, or the session ended. Open the app and turn on trading (one tap, no fee).");
   const perplSelectors = new Set(PERPL_SESSION_FUNCTIONS.map((f) => toFunctionSelector(f).toLowerCase()));
@@ -199,11 +196,54 @@ export async function wrapSessionTransactions(userId: string, txs: EvmTx[]): Pro
     else if (to === AUSD.address.toLowerCase() && selector === toFunctionSelector(APPROVE) && tx.data.slice(34, 74).toLowerCase() === PERPL_EXCHANGE.slice(2).toLowerCase()) kind = "ausd_approve";
     const r = kind && live.find((x) => x.kind === kind);
     if (!r) throw new Error(`Step ${i + 1} ("${tx.description}") is outside the trading session: it only covers Perpl orders, margin and deposits. Do it in the app.`);
+    return r;
+  });
+}
+
+/**
+ * Wrap calls of the Mera wallet into redeemDelegations calls that the agent key makes itself (it then pays its own gas).
+ * Used only when no gas sponsor runs; with the sponsor, see sessionChainRedeem.
+ */
+export async function wrapSessionTransactions(userId: string, txs: EvmTx[]): Promise<EvmTx[]> {
+  const picked = await sessionRowsFor(userId, txs);
+  return txs.map((tx, i) => {
+    const r = picked[i]!;
     const data = DelegationManager.encode.redeemDelegations({
       delegations: [[{ ...r.delegation, signature: r.signature as Hex }]],
       modes: [ExecutionMode.SingleDefault],
-      executions: [[createExecution({ target: tx.to, callData: tx.data, value: 0n })]],
+      executions: [[createExecution({ target: tx.to!, callData: tx.data, value: 0n })]],
     } as never);
     return { to: manager(), data, value: "0", description: tx.description };
   });
+}
+
+/**
+ * One redeemDelegations call for the gas sponsor, with a delegation chain per call: [agent key -> sponsor, Mera wallet -> agent key].
+ * The agent key signs a short sub-delegation (10 minutes) to the sponsor; it can never give more than the session gives.
+ * Not nested: a redemption inside another redemption reverts in the DelegationManager, so the sponsor redeems the chain itself.
+ */
+export async function sessionChainRedeem(userId: string, txs: EvmTx[], sponsor: Address): Promise<{ to: Address; data: Hex }> {
+  const picked = await sessionRowsFor(userId, txs);
+  const agent = await legacyAccount(userId);
+  const expires = Math.floor(Date.now() / 1000) + 600;
+  const leaves = new Map<string, unknown>();
+  const chainFor = async (r: Row) => {
+    const root = { ...r.delegation, signature: r.signature as Hex };
+    if (!leaves.has(r.id)) {
+      const caveats = createCaveatBuilder(env()).addCaveat("timestamp", { afterThreshold: 0, beforeThreshold: expires }).build();
+      const leaf = { delegate: sponsor, delegator: agent.address, authority: hashDelegation(root as never), caveats, salt: `0x${randomBytes(16).toString("hex")}` as Hex };
+      const t = typedData(leaf as StoredDelegation);
+      const signature = await agent.signTypedData({ ...t, message: { ...t.message, salt: BigInt(t.message.salt) } } as never);
+      leaves.set(r.id, { ...leaf, signature });
+    }
+    return [leaves.get(r.id), root];
+  };
+  const delegations = [];
+  for (const r of picked) delegations.push(await chainFor(r));
+  const data = DelegationManager.encode.redeemDelegations({
+    delegations,
+    modes: txs.map(() => ExecutionMode.SingleDefault),
+    executions: txs.map((tx) => [createExecution({ target: tx.to!, callData: tx.data, value: 0n })]),
+  } as never);
+  return { to: manager(), data };
 }

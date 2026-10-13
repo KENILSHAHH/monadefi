@@ -51,6 +51,8 @@ export interface RunArgs {
   signal?: AbortSignal;
   /** Test mode: every action waits for a confirmation that never comes, so nothing executes, and no lesson is saved. */
   dryRun?: boolean;
+  /** The prompt is a voice transcript. Speech recognition can mishear, so every action waits for a confirmation click. */
+  voice?: boolean;
 }
 
 /** The open input of one running agent. A message sent during the run goes into it and the agent reads it before its next step. */
@@ -68,6 +70,9 @@ export function sendToRun(userId: string, text: string): boolean {
   inbox.queue.push(text);
   return true;
 }
+
+/** Put before a voice transcript. The words come from speech recognition. */
+const VOICE_NOTE = `[Voice message. This is a speech-to-text transcript and can contain recognition errors: "purple" or "purple x" means Perpl, "axon" or "x on" can mean "x long", "a USD" or "aussie" means AUSD, "moan" or "mon" means MON. Read the intent; when a number or a side is unclear, ask. Every action waits for the user's confirmation click. Answer in short spoken sentences: the reply is read aloud.]\n`;
 
 /** A long task (build, test on a fork, deploy, schedule) needs many steps. There is no cost limit. */
 const MAX_TURNS = 300;
@@ -105,7 +110,7 @@ async function* runOne(args: RunArgs): AsyncGenerator<AgentEvent> {
   const c = config();
   const client = openai();
   const pending: Intent[] = [];
-  const wallet = { ...(await getOrCreateWallet(args.userId)), ...(args.dryRun ? { autoExecute: false } : {}) };
+  const wallet = { ...(await getOrCreateWallet(args.userId)), ...(args.dryRun || args.voice ? { autoExecute: false } : {}) };
 
   const abort = new AbortController();
   args.signal?.addEventListener("abort", () => abort.abort(), { once: true });
@@ -139,7 +144,8 @@ async function* runOne(args: RunArgs): AsyncGenerator<AgentEvent> {
     yield { type: "session", sessionId, skills: SKILLS.map((s) => s.name) };
 
     // A new chat starts with the memory. A resumed chat has it already.
-    let input: ResponseInputItem[] = [userMessage(args.resume ? args.prompt : `${await memoryBlock(args.userId)}${args.prompt}`)];
+    const prompt = args.voice ? `${VOICE_NOTE}${args.prompt}` : args.prompt;
+    let input: ResponseInputItem[] = [userMessage(args.resume ? prompt : `${await memoryBlock(args.userId)}${prompt}`)];
     let stopReason = "end_turn";
     for (;;) {
       if (turns >= MAX_TURNS) {

@@ -7,7 +7,7 @@ import {
   config, ensureUser, executeIntent, getDepositWallet, getIntent, getOrCreateWallet, getPositions, isExpired, listIntents,
   migrate, privyEnabled, sponsorAddress, syncDepositWallet, privySignIn, promptPriceUsd, runChatAgent, sendToRun, ChatRecorder, activeRecorders, listChats, getChat, deleteChat, signToken, sql, transition, updateWalletSettings, verifyToken, withdrawToOwner, type AgentEvent,
 } from "@app/core";
-import { jobs, lifi, auroraWorker } from "@app/core";
+import { jobs, lifi, auroraWorker, voice } from "@app/core";
 import { cancelGuard, listGuards } from "@app/core/guards";
 import { meraAuth, mobile } from "./mobile";
 
@@ -58,7 +58,7 @@ const auth = async (c: Context<Env>, next: () => Promise<void>) => {
   c.set("userId", claims.sub);
   await next();
 };
-for (const p of ["/me", "/wallet", "/wallet/*", "/positions", "/chat", "/chat/*", "/chats", "/chats/*", "/intents", "/intents/*", "/guards", "/guards/*", "/billing", "/billing/*", "/deposit", "/deposit/*", "/jobs", "/jobs/*", "/session", "/session/*", "/relay/*", "/balance", "/activity", "/perpl/*", "/trade/*", "/risk/*"]) app.use(p, auth);
+for (const p of ["/me", "/wallet", "/wallet/*", "/positions", "/chat", "/chat/*", "/chats", "/chats/*", "/intents", "/intents/*", "/guards", "/guards/*", "/billing", "/billing/*", "/deposit", "/deposit/*", "/jobs", "/jobs/*", "/voice/*", "/session", "/session/*", "/relay/*", "/balance", "/activity", "/perpl/*", "/trade/*", "/risk/*"]) app.use(p, auth);
 app.route("/", mobile);
 
 // ── Account and agent wallet ───────────────────────────────────────────────
@@ -115,14 +115,14 @@ app.get("/positions", async (c) => {
 });
 
 // ── Chat ───────────────────────────────────────────────────────────────────
-const ChatBody = z.object({ prompt: z.string().min(1).max(20_000), sessionId: z.string().optional() });
+const ChatBody = z.object({ prompt: z.string().min(1).max(20_000), sessionId: z.string().optional(), voice: z.boolean().optional() });
 
 async function* chatEvents(userId: string, body: z.infer<typeof ChatBody>, signal: AbortSignal): AsyncGenerator<AgentEvent> {
   // The run is stored while it streams. A storage error never stops the chat.
   const rec = await ChatRecorder.open(userId, body.prompt, body.sessionId).catch((err) => (console.error("chat store:", err), null));
   if (rec) activeRecorders.set(userId, rec);
   try {
-    for await (const ev of runChatAgent({ userId, prompt: body.prompt, resume: body.sessionId, signal })) {
+    for await (const ev of runChatAgent({ userId, prompt: body.prompt, resume: body.sessionId, signal, voice: body.voice })) {
       await rec?.add(ev).catch((err) => console.error("chat store:", err));
       yield ev;
     }
@@ -160,6 +160,36 @@ app.post("/chat/message", async (c) => {
   if (!sendToRun(userId, prompt)) return c.json({ error: "No run is active." }, 409);
   await activeRecorders.get(userId)?.midRunMessage(prompt).catch((err) => console.error("chat store:", err));
   return c.json({ queued: true }, 202);
+});
+
+// ── Voice (Deepgram) ───────────────────────────────────────────────────────
+// The app records a clip and sends it here; the server holds the Deepgram key. A simple per-user limit protects the budget.
+const voiceCalls = new Map<string, number[]>();
+function voiceAllowed(userId: string, perMinute = 40) {
+  const now = Date.now();
+  const recent = (voiceCalls.get(userId) ?? []).filter((t) => now - t < 60_000);
+  if (recent.length >= perMinute) return false;
+  voiceCalls.set(userId, [...recent, now]);
+  return true;
+}
+
+app.post("/voice/transcribe", async (c) => {
+  if (!voice.voiceEnabled()) return c.json({ error: "Voice is not set up on this server." }, 503);
+  if (!voiceAllowed(c.get("userId"))) return c.json({ error: "Too many voice requests. Wait a minute." }, 429);
+  const audio = await c.req.arrayBuffer();
+  return voice.transcribe(audio, c.req.header("content-type") ?? "").then((t) => c.json(t), (e) => c.json({ error: e instanceof Error ? e.message : String(e) }, 400));
+});
+
+app.post("/voice/speak", async (c) => {
+  if (!voice.voiceEnabled()) return c.json({ error: "Voice is not set up on this server." }, 503);
+  if (!voiceAllowed(c.get("userId"))) return c.json({ error: "Too many voice requests. Wait a minute." }, 429);
+  const body = z.object({ text: z.string().min(1).max(8_000), voice: z.string().optional() }).parse(await c.req.json());
+  try {
+    const res = await voice.speak(body.text, body.voice);
+    return new Response(res.body, { headers: { "content-type": "audio/mpeg", "cache-control": "no-store" } });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : String(e) }, 400);
+  }
 });
 
 // ── Past chats ─────────────────────────────────────────────────────────────

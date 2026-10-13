@@ -116,9 +116,22 @@ Two paths, chosen by the server from the source chain:
 `status`: `awaiting_signature` → `awaiting_deposit` → `processing` → `settled`, or `incomplete`, `refunded` (with `refundTx`, `refundAmount`, `refundReason`), `failed`, `expired`. `listening` is a persistent address.
 `afterStatus` (after `settled`): `funded`, `opened`, `ready`, `needs_conversion`, `converted`, `needs_session` (turn on trading), `failed` (see `afterResult.error`).
 
+## Voice (Deepgram)
+
+The server holds the Deepgram key. Each user can make 40 voice calls per minute.
+
+### `POST /voice/transcribe`
+The body is the raw recording: `content-type: audio/webm`, `audio/mp4` (Safari), `audio/wav` or `audio/mpeg`. The maximum size is 10 MB, which is about one minute of audio. The response is `{ "transcript": "…", "confidence": 0.99, "durationSec": 4.2 }` (Nova-3 with key terms such as Perpl, AUSD and MON).
+
+### `POST /voice/speak`
+The body is `{ "text": "…", "voice"?: "aura-2-thalia-en" }`. The response is `audio/mpeg`. The server removes markdown, links and long hex strings before it speaks.
+
+### Voice chat
+Send the transcript to `POST /chat` with `"voice": true`. Every action in that run then waits for the confirm card, even when auto-execute is on. Voice can mishear, for example "fifteen" as "fifty". The agent also answers in short spoken sentences.
+
 ## Agent chat
 
-### `POST /chat` body `{ "prompt": "…", "sessionId"?: "conv_…" }` → `text/event-stream` of `AgentEvent` (see `packages/core/src/agent/run.ts`): `session`, `text`, `tool`, `tool_result`, `intent`, `done`, `error`.
+### `POST /chat` body `{ "prompt": "…", "sessionId"?: "conv_…", "voice"?: true }` → `text/event-stream` of `AgentEvent` (see `packages/core/src/agent/run.ts`): `session`, `text`, `tool`, `tool_result`, `intent`, `done`, `error`.
 ### `POST /chat/message` body `{ "prompt": "…" }` → a message for the run that is active now.
 
 ## Errors

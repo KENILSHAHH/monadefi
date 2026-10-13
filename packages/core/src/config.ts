@@ -11,6 +11,11 @@ const Env = z.object({
   // Reasoning effort of the chat agent. Higher is slower and costs more, and it finds more.
   OPENAI_EFFORT: z.enum(["low", "medium", "high", "xhigh", "max"]).default("medium"),
 
+  // Deepgram voice: speech to text and text to speech (https://console.deepgram.com). Server only.
+  DEEPGRAM_API_KEY: z.string().optional(),
+  DEEPGRAM_STT_MODEL: z.string().default("nova-3"),
+  DEEPGRAM_TTS_MODEL: z.string().default("aura-2-thalia-en"),
+
   // Aurora Intents: deposits from any chain to Monad (https://studio.aurora.dev). The key is not secret; Aurora puts it in URLs.
   AURORA_API_KEY: z.string().optional(),
 
