@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| App (browser, passkeys) | https://app.3-83-183-92.sslip.io |
+| App (browser, passkeys) | https://mona-defi.vercel.app |
 | API | https://api.3-83-183-92.sslip.io (`/health`) |
 | Web app (Privy sign-in) | https://web.3-83-183-92.sslip.io |
 | Chain | Monad mainnet, chain id 143 |
@@ -52,6 +52,34 @@ Money comes in from **36 chains** through Aurora Intents, and it arrives as AUSD
 - **Voice (Deepgram).** Hold the mic and speak. Nova-3 turns the speech into text, and Aura-2 reads the replies aloud. A trade asked by voice always waits for a confirm tap.
 - **The agent.** OpenAI (`gpt-5.6-sol`, medium effort) with typed DeFi tools, product skills, hosted docs search (Perpl, Monad, Relay, LI.FI, Nansen), a sandboxed terminal (Foundry is installed) and a memory of lessons.
 - **Gasless.** A gas sponsor pays every fee on Monad. A user never needs MON.
+
+## Scheduled jobs and automation (on our AWS)
+
+The agent schedules work that the server runs later, with no chat open. Plain code runs it on our AWS infrastructure:
+
+| Part | Where it runs |
+|---|---|
+| Stored jobs (condition, action, repeat) | Postgres on RDS |
+| Job loop: checks each job every 15 s, rebuilds the action, simulates it and sends it | API service on EC2 |
+| Guard watcher: liquidation distance every second, Nansen re-checks every few minutes | Its own service on EC2 |
+| Agent terminal: scripts with Foundry, Node and Python | OS sandbox on EC2 |
+
+**Live**
+- **Conditions:** the Perpl mark price of a market (above or below a level), or a time. A job can repeat (`everySeconds` × `times`), for example daily for 30 days.
+- **Actions:** a Perpl order (open, or close part or all of a position), a swap on Monad, fixed Monad transactions, or `agent_task`: at that time the agent runs an instruction itself, with all its tools.
+- **Stop-loss and take-profit jobs** that watch the Perpl mark price and close with a market order. They close only a position on the same side.
+- **Position guards** on every new Perpl position: they deleverage near liquidation, and they exit, reduce or tighten the stop when Nansen turns against the position.
+- **Examples:**
+  - "Every day at 09:00, check BTC funding; if it is above 0.05%, close half of my BTC long." (time condition, daily repeat, `agent_task`)
+  - "If ETH drops below 2,300, close my ETH long." (price condition, Perpl close)
+
+**In progress**
+- **SIP / DCA from the passkey wallet:** "buy 10 USD of BTC every day". The repeat engine exists. The scoped session of a passkey wallet must first allow the swap router, with the recipient pinned to the user and a daily spend limit.
+- **Lending on Monad** (supply, borrow, repay, withdraw) with a health-factor monitor. The venues on Monad are being verified.
+- **Flash-loan unwind:** when a loan nears liquidation, flash-borrow the debt, repay it, withdraw the collateral, swap and repay the flash loan, in one transaction. This needs a small executor contract on Monad, tested on a fork first.
+- **Script jobs:** the agent writes a script in its workspace, and the server runs it on a schedule in the same sandbox and stores the output. The result can feed an action. Limits per user: run time, runs per day and memory.
+
+The agent gets no AWS credentials of its own. It uses the server's compute only through the job system.
 
 ## Architecture
 
