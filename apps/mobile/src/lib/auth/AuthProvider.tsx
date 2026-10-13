@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import type { PasskeyCredentialMetadata } from "@category-labs/mera";
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from "react";
 import { AppState } from "react-native";
 import { api, ApiError, errorMessage, setAuthHooks } from "../api/client";
@@ -6,6 +7,7 @@ import { config } from "../config";
 import { deriveAccount } from "../mera/derive";
 import { assertPasskey, createPasskey, passkeyErrorMessage } from "../mera/passkey";
 import { endSigner, hasSigner, setSigner } from "../mera/signer";
+import { sessionManager } from "../session";
 import { storage } from "../storage";
 import { signMessage } from "../wallet";
 import { authReducer, canReuseToken, initialAuthState, shouldLock, type AuthState, type PasskeyMode } from "./machine";
@@ -32,6 +34,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const addressRef = useRef<string | null>(null);
   const renewing = useRef<Promise<string | null> | null>(null);
   const busy = useRef(false);
+  // The credential hint, read once at boot. unlock() needs it with no await: in a browser (Safari), the passkey
+  // ceremony must start in the same task as the button press, else the browser rejects it (no user gesture).
+  const credentialRef = useRef<PasskeyCredentialMetadata | null>(null);
 
   /** Challenge → EIP-191 signature from the session → verify. Stores only the token. */
   const signIn = useCallback(async (address: string) => {
@@ -94,7 +99,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         let result;
         try {
-          result = mode === "create" ? await createPasskey() : await assertPasskey(await storage.getCredential());
+          // No await before the ceremony starts (see credentialRef).
+          result = await (mode === "create" ? createPasskey() : assertPasskey(credentialRef.current));
         } catch (e) {
           dispatch({ type: "PASSKEY_FAILED", error: passkeyErrorMessage(e) });
           return;
@@ -110,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         addressRef.current = address;
+        credentialRef.current = result.credential;
         await storage.setCredential(result.credential);
         dispatch({ type: "DERIVED", address });
         await authenticate(address);
@@ -129,6 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const lock = useCallback(() => {
     endSigner();
     tokenRef.current = null;
+    sessionManager.reset();
     queryClient.clear();
     dispatch({ type: "LOCK" });
   }, [queryClient]);
@@ -137,8 +145,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     endSigner();
     tokenRef.current = null;
     addressRef.current = null;
+    credentialRef.current = null;
     queryClient.clear();
+    // clearAll also deletes the revoke flag: the next sign-in turns trading on again.
     await storage.clearAll();
+    sessionManager.reset({ signedOut: true });
     dispatch({ type: "SIGN_OUT" });
   }, [queryClient]);
 
@@ -146,6 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void (async () => {
       const [credential, address] = await Promise.all([storage.getCredential(), storage.getAddress()]);
+      credentialRef.current = credential;
       dispatch({ type: "BOOTED", hasPasskeyHint: credential !== null || address !== null, address });
     })();
   }, []);

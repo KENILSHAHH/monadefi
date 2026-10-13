@@ -38,6 +38,10 @@ const statusText = (status: number) =>
   status >= 500 ? "The Mona-DeFi server had a problem. Try again in a moment." :
   `The request failed (HTTP ${status}).`;
 
+/** The current token and a renewal after a 401, for the raw (binary) requests of lib/voice and lib/chat. */
+export const currentToken = () => hooks.getToken();
+export const renewAuthToken = () => hooks.renew().catch(() => null);
+
 export function authHeader(token: string | null): Record<string, string> {
   return token ? { authorization: `Bearer ${token}` } : {};
 }

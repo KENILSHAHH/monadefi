@@ -34,9 +34,23 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     predictiveBackGestureEnabled: false,
   },
+  // The mobile website. Single-page output: a static host with an SPA fallback to index.html serves every route.
+  // public/index.html adds the home screen (PWA) meta tags and public/manifest.webmanifest.
+  web: {
+    bundler: "metro",
+    output: "single",
+    favicon: "./assets/favicon.png",
+    name: "Mona-DeFi",
+    shortName: "Mona-DeFi",
+    themeColor: "#0B0D10",
+    backgroundColor: "#0B0D10",
+    description: "Perps on Monad, from a passkey.",
+  },
   plugins: [
     "expo-router",
     "expo-secure-store",
+    // Hold-to-talk in the Agent tab (Deepgram through the server). No background recording.
+    ["expo-audio", { microphonePermission: "Mona-DeFi uses the microphone when you hold the mic button to talk to the agent.", enableBackgroundRecording: false, enableBackgroundPlayback: false }],
     ["expo-splash-screen", { image: "./assets/splash-icon.png", imageWidth: 160, backgroundColor: "#0B0D10" }],
     // Passkeys with the PRF extension need iOS 18 or later and Android 9 (API 28) or later.
     ["expo-build-properties", { ios: { deploymentTarget: "18.0" }, android: { minSdkVersion: 28 } }],

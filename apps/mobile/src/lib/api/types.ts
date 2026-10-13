@@ -339,6 +339,8 @@ export interface AuroraToken {
   blockchain?: string;
   price?: number | null;
   icon?: string | null;
+  /** The token contract on the source chain. null for the native coin. */
+  contractAddress?: string | null;
 }
 
 export interface AuroraChain {
@@ -349,6 +351,11 @@ export interface AuroraChain {
   /** Intents Connect: AUSD arrives directly after one signature. Otherwise USDC arrives and the phone signs a swap. */
   connect: boolean;
   tokens: AuroraToken[];
+  /** Optional chain data. When present, MetaMask can switch to (and add) the source chain without a lookup. */
+  chainId?: number;
+  rpcUrls?: string[];
+  blockExplorerUrls?: string[];
+  nativeCurrency?: { name: string; symbol: string; decimals: number };
 }
 
 export interface AuroraQuote {

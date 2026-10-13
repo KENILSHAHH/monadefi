@@ -9,6 +9,11 @@ export interface ChatMessage {
   role: "user" | "assistant";
   parts: ChatPart[];
   error?: string;
+  /** Run timing for the step line (ms since epoch). */
+  startedAt?: number;
+  endedAt?: number;
+  /** The prompt came from the mic. */
+  voice?: boolean;
 }
 
 /** Fold one stream event into the assistant message. Pure, so the chat behaviour is testable. */

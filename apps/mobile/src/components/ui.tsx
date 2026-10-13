@@ -4,7 +4,7 @@ import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import {
-  ActivityIndicator, Animated, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View,
+  ActivityIndicator, Alert, Animated, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View,
   type StyleProp, type TextStyle, type ViewStyle,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,12 +12,33 @@ import { colors, radius, space, type } from "@/theme";
 
 export type IconName = ComponentProps<typeof Ionicons>["name"];
 
-export const haptic = {
-  tap: () => void Haptics.selectionAsync().catch(() => undefined),
-  success: () => void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined),
-  error: () => void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined),
-  impact: () => void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined),
-};
+const isWeb = Platform.OS === "web";
+const noop = () => undefined;
+
+/** Haptic feedback. A no-op on web: browsers have no haptics API that iOS Safari supports. */
+export const haptic = isWeb
+  ? { tap: noop, success: noop, error: noop, impact: noop }
+  : {
+      tap: () => void Haptics.selectionAsync().catch(noop),
+      success: () => void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(noop),
+      error: () => void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(noop),
+      impact: () => void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(noop),
+    };
+
+/**
+ * Ask the user to confirm a destructive action. Native: a system alert. Web: window.confirm,
+ * because the react-native-web Alert.alert does nothing.
+ */
+export function confirmAction(title: string, message: string, confirmText: string, onConfirm: () => void) {
+  if (isWeb) {
+    if (typeof window !== "undefined" && window.confirm(`${title}\n\n${message}`)) onConfirm();
+    return;
+  }
+  Alert.alert(title, message, [
+    { text: "Cancel", style: "cancel" },
+    { text: confirmText, style: "destructive", onPress: onConfirm },
+  ]);
+}
 
 export const openLink = (url: string) => void WebBrowser.openBrowserAsync(url, { toolbarColor: colors.bg, controlsColor: colors.accent }).catch(() => undefined);
 
@@ -225,8 +246,8 @@ export function Skeleton({ width = "100%", height = 16, style }: { width?: ViewS
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.45, duration: 700, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: !isWeb }),
+        Animated.timing(opacity, { toValue: 0.45, duration: 700, useNativeDriver: !isWeb }),
       ]),
     );
     loop.start();
@@ -311,7 +332,8 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { textAlign: "center" },
   tabular: { fontVariant: ["tabular-nums"] },
-  screen: { flex: 1, backgroundColor: colors.bg },
+  // Transparent: the tab screens show the aurora (components/Aurora). Stack screens get colors.bg from the navigator.
+  screen: { flex: 1, backgroundColor: "transparent" },
   content: { padding: space.lg, paddingBottom: space.xxl * 2, gap: space.lg },
   card: { backgroundColor: colors.panel, borderRadius: radius.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line, overflow: "hidden" },
   cardPad: { padding: space.lg },
@@ -344,7 +366,8 @@ const styles = StyleSheet.create({
   notice: { flexDirection: "row", gap: space.sm, padding: space.md, borderRadius: radius.md },
   noticeIcon: { marginTop: 1 },
   backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)" },
-  sheet: { maxHeight: "88%", backgroundColor: colors.panel, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingHorizontal: space.lg, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
+  // On a wide browser window the sheet keeps the width of the centered app column.
+  sheet: { ...(isWeb ? { width: "100%", maxWidth: 480, alignSelf: "center" } : {}), maxHeight: "88%", backgroundColor: colors.panel, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, paddingHorizontal: space.lg, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
   grabber: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: colors.line, marginTop: space.sm },
   sheetHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: space.md },
   sheetBody: { flexGrow: 0 },

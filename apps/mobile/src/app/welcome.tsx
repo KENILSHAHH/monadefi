@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect, useRef } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button, Notice } from "@/components/ui";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -18,8 +18,10 @@ export default function Welcome() {
   const { state, unlock, retry, signOut } = useAuth();
   const autoStarted = useRef(false);
 
-  // App start with a passkey hint: start the one ceremony at once.
+  // App start with a passkey hint: start the one ceremony at once. Not on web: a browser needs a user gesture
+  // (a tap on "Unlock with passkey") to start a passkey ceremony.
   useEffect(() => {
+    if (Platform.OS === "web") return;
     if (state.tag === "locked" && state.reason === "start" && !state.error && !autoStarted.current) {
       autoStarted.current = true;
       void unlock("signin");
@@ -83,7 +85,7 @@ export default function Welcome() {
           <>
             <Button title="Create account with passkey" icon="finger-print" onPress={() => void unlock("create")} />
             <Button title="Sign in with passkey" variant="secondary" icon="key-outline" onPress={() => void unlock("signin")} />
-            <Text style={[type.tiny, styles.center]}>One Face ID or fingerprint check. Your key never leaves this device and is never stored.</Text>
+            <Text style={[type.tiny, styles.center]}>{Platform.OS === "web" ? "One Face ID or fingerprint check. Your key stays in this tab only and is never stored." : "One Face ID or fingerprint check. Your key never leaves this device and is never stored."}</Text>
           </>
         )}
         {state.tag === "locked" && (

@@ -1,7 +1,7 @@
 import Slider from "@react-native-community/slider";
 import { useQueryClient } from "@tanstack/react-query";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { IntentConfirm } from "@/components/IntentConfirm";
 import { RiskCard } from "@/components/RiskCard";
@@ -10,7 +10,8 @@ import { api, ApiError, errorMessage } from "@/lib/api/client";
 import type { Intent, RiskCheckResponse, RiskVerdict, Side, TradePreviewBody, TradePreviewResponse } from "@/lib/api/types";
 import { fixed, num, parseAmount, price, usd } from "@/lib/format";
 import { clampLeverage, PERPL_MIN_DEPOSIT, roughLiquidation } from "@/lib/markets";
-import { keys, useBalance, useMarkets, useSessionStatus } from "@/lib/queries";
+import { keys, useBalance, useMarkets } from "@/lib/queries";
+import { ensureSessionBefore, useTradingSession } from "@/lib/session";
 import { colors, radius, space, type } from "@/theme";
 
 type Phase = { tag: "edit" } | { tag: "checking" } | { tag: "checked"; risk: RiskCheckResponse; forKey: string } | { tag: "previewing"; risk: RiskCheckResponse; forKey: string };
@@ -21,7 +22,7 @@ export default function TradeTicket() {
   const qc = useQueryClient();
   const markets = useMarkets();
   const balance = useBalance();
-  const session = useSessionStatus();
+  const trading = useTradingSession();
   const m = markets.data?.find((x) => x.symbol === symbol);
   const maxLev = Math.max(1, Math.floor(m?.maxLeverage ?? 1));
 
@@ -39,6 +40,7 @@ export default function TradeTicket() {
   const [preview, setPreview] = useState<TradePreviewResponse | null>(null);
   const [blocked, setBlocked] = useState<{ message: string; risk?: RiskVerdict } | null>(null);
   const [final, setFinal] = useState<Intent | null>(null);
+  const lastBody = useRef<TradePreviewBody | null>(null);
 
   const lev = clampLeverage(leverage, maxLev);
   const margin = parseAmount(marginText);
@@ -89,7 +91,10 @@ export default function TradeTicket() {
       market: symbol, side, leverage: lev, marginUsd: margin, orderType,
       ...(limitPx ? { limitPx } : {}), ...(slPx ? { stopLossPx: slPx } : {}), ...(tpPx ? { takeProfitPx: tpPx } : {}),
     };
+    lastBody.current = body;
     try {
+      // Trading access sets itself up after the passkey. This waits for it only when it is not ready yet.
+      await ensureSessionBefore();
       const r = await api.trade.preview(body);
       setPreview(r);
       setPhase({ tag: "checked", risk, forKey: inputKey });
@@ -101,6 +106,13 @@ export default function TradeTicket() {
       setPhase({ tag: "checked", risk, forKey: inputKey });
     }
   }
+
+  /** After a session_inactive failure: the same order as a new pending intent, which IntentConfirm confirms once. */
+  const retryPreview = async (): Promise<Intent | null> => {
+    if (!lastBody.current) return null;
+    const r = await api.trade.preview(lastBody.current);
+    return r.intent;
+  };
 
   const finish = () => {
     setPreview(null);
@@ -124,9 +136,9 @@ export default function TradeTicket() {
       <Screen edges={["bottom"]}>
         <Stack.Screen options={{ title: `Trade ${symbol}` }} />
 
-        {session.data && session.data.status !== "active" && (
+        {trading.phase === "revoked" && (
           <Notice tone="accent" icon="key-outline">
-            Trading is not turned on yet. You can check the risk and preview now. Turn it on before you confirm.
+            Trading access is off because you revoked it. You can check the risk and preview now. Restore it in Settings before you confirm.
           </Notice>
         )}
 
@@ -239,13 +251,7 @@ export default function TradeTicket() {
                 )}
               </View>
             )}
-            {session.data && session.data.status !== "active" && (
-              <>
-                <Notice tone="accent" icon="key-outline">Turn on trading to confirm. It is one tap and needs no passkey.</Notice>
-                <Button title="Turn on trading" variant="secondary" onPress={() => { setPreview(null); router.push("/session"); }} />
-              </>
-            )}
-            <IntentConfirm intent={preview.intent} onSettled={setFinal} onOpenSession={() => setPreview(null)} />
+            <IntentConfirm intent={preview.intent} onSettled={setFinal} onOpenSession={() => setPreview(null)} onRetry={retryPreview} />
             {final && final.status !== "pending" && <Button title="Done" variant="secondary" onPress={finish} />}
           </View>
         )}

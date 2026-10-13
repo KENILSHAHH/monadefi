@@ -6,14 +6,15 @@ import { config } from "./config";
 import { SseParser } from "./sse";
 
 /** Send a prompt to the agent and yield each event of the stream (POST /chat). */
-export async function* chatStream(prompt: string, sessionId: string | null, token: string | null, signal: AbortSignal): AsyncGenerator<AgentEvent> {
+/** `voice`: the prompt is a transcript. The server then waits for the confirm card for every action of the run. */
+export async function* chatStream(prompt: string, sessionId: string | null, token: string | null, signal: AbortSignal, opts: { voice?: boolean } = {}): AsyncGenerator<AgentEvent> {
   let res: Awaited<ReturnType<typeof streamingFetch>>;
   try {
     res = await streamingFetch(`${config.apiUrl}/chat`, {
       method: "POST",
       signal,
       headers: { "content-type": "application/json", accept: "text/event-stream", ...authHeader(token) },
-      body: JSON.stringify({ prompt, ...(sessionId ? { sessionId } : {}) }),
+      body: JSON.stringify({ prompt, ...(sessionId ? { sessionId } : {}), ...(opts.voice ? { voice: true } : {}) }),
     });
   } catch (e) {
     if ((e as Error)?.name === "AbortError") throw e;

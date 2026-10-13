@@ -1,12 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { isAddress, type Address } from "viem";
 import { Button, Card, Chip, KeyValue, LinkText, Notice, Screen, Segmented, haptic } from "@/components/ui";
 import { errorMessage } from "@/lib/api/client";
 import { fixed, parseAmount } from "@/lib/format";
 import { keys, useBalance, useSessionStatus } from "@/lib/queries";
+import { ensureSession } from "@/lib/session";
 import { ausdTransferCall, perplWithdrawCall, relay } from "@/lib/wallet";
 import { colors, radius, space, type } from "@/theme";
 
@@ -32,6 +32,17 @@ export default function Withdraw() {
   const toOk = mode === "perpl" || isAddress(to.trim());
   const problem = !amount ? null : amount > max + 1e-9 ? `You can move up to ${fixed(max, 2)} AUSD from here.` : !toOk ? "Enter a valid 0x address on Monad." : null;
   const upgraded = session.data?.upgraded ?? false;
+  const [upgrading, setUpgrading] = useState(false);
+
+  // The one-time smart account upgrade grants no permission, so it runs here even after a revoke. No prompt.
+  useEffect(() => {
+    if (!session.data || upgraded) return;
+    setUpgrading(true);
+    void ensureSession({ upgradeOnly: true }).finally(() => {
+      setUpgrading(false);
+      void qc.invalidateQueries({ queryKey: keys.session });
+    });
+  }, [session.data, upgraded, qc]);
 
   async function submit() {
     if (!amount || problem) return;
@@ -60,7 +71,9 @@ export default function Withdraw() {
       <Segmented value={mode} onChange={(m) => { setMode(m); setDone(null); setError(null); }} options={[{ value: "perpl", label: "Perpl → wallet" }, { value: "wallet", label: "Wallet → address" }]} />
 
       {session.data && !upgraded && (
-        <Notice tone="accent" icon="key-outline">Gasless withdrawals need the one-time smart account upgrade. Turn on trading once to do it.</Notice>
+        <Notice tone="accent" icon="key-outline">
+          {upgrading ? "Setting up your smart account for gasless withdrawals. This takes a few seconds." : "Gasless withdrawals need the one-time smart account upgrade. It did not finish yet: try again in a moment."}
+        </Notice>
       )}
 
       <Card style={styles.gap}>
@@ -85,7 +98,7 @@ export default function Withdraw() {
       )}
 
       {session.data && !upgraded ? (
-        <Button title="Set up the smart account" variant="secondary" onPress={() => router.push("/session")} />
+        <Button title={upgrading ? "Setting up the smart account" : "Try the setup again"} variant="secondary" loading={upgrading} disabled={upgrading} onPress={() => { setUpgrading(true); void ensureSession({ upgradeOnly: true }).finally(() => { setUpgrading(false); void qc.invalidateQueries({ queryKey: keys.session }); }); }} />
       ) : (
         <Button title={mode === "perpl" ? "Withdraw to wallet" : "Send AUSD"} icon="arrow-up" loading={busy} disabled={!amount || Boolean(problem)} onPress={() => void submit()} />
       )}

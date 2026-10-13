@@ -19,7 +19,7 @@ export async function signMessage(message: string): Promise<`0x${string}`> {
   return requireAccount().signMessage({ message });
 }
 
-/** What the session setup does next for a given server status. */
+/** What the session setup does next for a given server status. The automatic setup is in session/manager.ts. */
 export type SessionPlan = { upgrade: boolean; grant: boolean };
 
 export function planSession(s: Pick<SessionStatus, "status" | "upgraded">): SessionPlan {
@@ -33,38 +33,6 @@ export function planSession(s: Pick<SessionStatus, "status" | "upgraded">): Sess
     case "expired":
       return { upgrade: !s.upgraded, grant: true };
   }
-}
-
-export type SetupStep = "upgrade" | "start" | "grant" | "done";
-
-/**
- * Turn on trading: the EIP-7702 upgrade if needed, then one EIP-712 signature per scoped delegation.
- * `onStep` drives the progress view. Returns the upgrade transaction link, if one was sent.
- */
-export async function enableTrading(days: number, onStep: (s: SetupStep, detail?: string) => void): Promise<{ upgradeTx: string | null }> {
-  const account = requireAccount();
-  const status = await api.session.status();
-  const plan = planSession(status);
-  let upgradeTx: string | null = null;
-  if (plan.upgrade) {
-    onStep("upgrade");
-    // The sponsor sends the authorization, so its nonce is the wallet's own current transaction count.
-    const nonce = await monadClient.getTransactionCount({ address: account.address, blockTag: "pending" });
-    if (!account.signAuthorization) throw new Error("This signer cannot sign an EIP-7702 authorization.");
-    const auth = await account.signAuthorization({ chainId: config.chainId, contractAddress: status.implementation, nonce });
-    const r = await api.session.upgrade({ address: auth.address, chainId: auth.chainId, nonce: auth.nonce, r: auth.r, s: auth.s, yParity: auth.yParity ?? 0 });
-    upgradeTx = r.explorer;
-  }
-  if (plan.grant) {
-    onStep("start");
-    const started = await api.session.start(days);
-    for (const p of started.permissions) {
-      onStep("grant", p.kind);
-      await api.session.grant(p.id, await signTypedPayload(p.typedData));
-    }
-  }
-  onStep("done");
-  return { upgradeTx };
 }
 
 /** A gasless call batch that the wallet makes itself: prepare, sign the one-time delegation, send. */

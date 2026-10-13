@@ -10,7 +10,8 @@ import { api, errorMessage } from "@/lib/api/client";
 import type { Intent, PerplPosition } from "@/lib/api/types";
 import { useAddress } from "@/lib/auth/AuthProvider";
 import { fixed, num, price, short, signedUsd, usd } from "@/lib/format";
-import { keys, useBalance, usePositions, useSessionStatus } from "@/lib/queries";
+import { keys, useBalance, usePositions } from "@/lib/queries";
+import { useTradingSession } from "@/lib/session";
 import { colors, radius, space, type } from "@/theme";
 
 export default function Home() {
@@ -18,7 +19,7 @@ export default function Home() {
   const qc = useQueryClient();
   const balance = useBalance();
   const positions = usePositions();
-  const session = useSessionStatus();
+  const trading = useTradingSession();
   const [selected, setSelected] = useState<PerplPosition | null>(null);
 
   const refreshing = balance.isRefetching || positions.isRefetching;
@@ -44,11 +45,9 @@ export default function Home() {
         </Pressable>
       </View>
 
-      {session.data && session.data.status !== "active" && (
-        <Pressable onPress={() => router.push("/session")} accessibilityRole="button">
-          <Notice tone="accent" icon="key-outline">
-            {session.data.status === "expired" ? "Your trading permission ended. Tap to renew it." : "Turn on trading: one tap gives Mona-DeFi a scoped permission to place Perpl orders. No prompts after that."}
-          </Notice>
+      {trading.phase === "revoked" && (
+        <Pressable onPress={() => router.push("/(tabs)/settings")} accessibilityRole="button">
+          <Notice tone="accent" icon="key-outline">Trading access is off because you revoked it. You can restore it in Settings.</Notice>
         </Pressable>
       )}
 

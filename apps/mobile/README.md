@@ -94,6 +94,46 @@ npx eas-cli build --profile development --platform android
 
 Set `EXPO_PUBLIC_RP_ID` and `EXPO_PUBLIC_API_URL` in the profile `env` or as EAS environment variables before a build.
 
+## Run in Safari (no app)
+
+Mona-DeFi also runs as a mobile website. You do not install an app. The website uses the same passkey and the same wallet as the native app.
+
+1. On an iPhone with iOS 18 or later, open Settings > [your name] > iCloud > Passwords and Keychain. Make sure that iCloud Keychain is on.
+2. In Safari, open https://app.3-83-183-92.sslip.io.
+3. Tap **Create account with passkey**. Confirm with Face ID or Touch ID.
+4. Optional: tap Share > **Add to Home Screen**. Mona-DeFi then opens full screen, like an app.
+
+On a later visit, tap **Sign in with passkey** or **Unlock with passkey**. The website does not start the passkey prompt by itself, because Safari needs a tap to start it.
+
+Supported browsers. A browser must give the WebAuthn PRF extension (a passkey feature that returns a fixed secret):
+
+- Safari on iOS 18 or later, or macOS 15 or later, with iCloud Keychain.
+- Chrome with Google Password Manager.
+
+Stateless rules on the web:
+
+- The signing key stays in the memory of the tab only. A reload or a closed tab ends it. Then the app shows the lock screen.
+- The session token, the address and the passkey id hint go to `localStorage`. They are untrusted and can be lost. If they are lost, the browser offers every Mona-DeFi passkey.
+
+Build and serve the website:
+
+```sh
+npx expo export --platform web   # writes dist/ (index.html, _expo/static/js/web/*.js, assets, manifest)
+npx serve dist -s -l 8090        # -s sends index.html for every route (SPA fallback)
+```
+
+The host must serve `dist/` at the origin `https://<EXPO_PUBLIC_RP_ID>`. WebAuthn rejects a passkey request when the page origin and the rp id do not match. The API must allow this origin (CORS).
+
+Platform files (Metro picks `*.web.ts` for the web build):
+
+| Part | Native | Web |
+|---|---|---|
+| Passkey | `src/lib/mera/passkey.ts`: Mera React Native client (`react-native-passkey`) | `src/lib/mera/passkey.web.ts`: Mera browser client (`navigator.credentials`) |
+| Storage | `src/lib/storage.ts`: `expo-secure-store` | `src/lib/storage.web.ts`: `localStorage` |
+| Polyfill | `src/polyfills.ts`: `crypto.getRandomValues` from `expo-crypto` | `src/polyfills.web.ts`: none (browsers have it) |
+
+Both platforms use `src/lib/mera/passkeyCore.ts` and `src/lib/mera/derive.ts`. Thus the rp id, the PRF salt and the BIP-39 / BIP-32 path are the same.
+
 ## How the account works (Mera)
 
 Sources: the package source (`@category-labs/mera@0.2.0`, `src/passkey.ts`, `src/viem.ts`) and the docs pages "Create passkey accounts", "Use mera with React Native" and "Signing sessions" on https://mera.category.xyz.
@@ -133,6 +173,7 @@ A stored token is used only when its address equals the address that the passkey
 npm test                    # 42 unit tests
 npx tsc --noEmit            # strict typecheck
 npx expo export --platform ios
+npx expo export --platform web
 npx expo-doctor
 ```
 
@@ -154,7 +195,8 @@ app.config.ts          app name, bundle id, associated domains, iOS 18 / Android
 eas.json               EAS build profiles
 index.ts               polyfills, then expo-router/entry
 well-known/            apple-app-site-association and assetlinks.json templates
-src/polyfills.ts       crypto.getRandomValues from expo-crypto (Mera React Native guide)
+public/                web template (index.html with home screen meta tags), manifest.webmanifest, icons
+src/polyfills.ts       crypto.getRandomValues from expo-crypto (Mera React Native guide); polyfills.web.ts is empty
 src/app/               screens (Expo Router)
 src/components/        UI kit, risk card, intent views, chart, book, QR
 src/lib/mera/          passkey ceremonies, derivation, the in-memory signer
