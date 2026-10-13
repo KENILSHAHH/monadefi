@@ -72,6 +72,12 @@ The agent schedules work that the server runs later, with no chat open. Plain co
   - "Every day at 09:00, check BTC funding; if it is above 0.05%, close half of my BTC long." (time condition, daily repeat, `agent_task`)
   - "If ETH drops below 2,300, close my ETH long." (price condition, Perpl close)
 
+**In progress**
+- **SIP / DCA from the passkey wallet:** for example "buy 10 USD of BTC every day", with the recipient pinned to the user and a daily spend limit.
+- **Lending on Monad:** supply, borrow, repay and withdraw, with a health-factor monitor.
+- **Flash-loan unwind:** near liquidation, flash-borrow the debt, repay it, withdraw the collateral, swap and repay the flash loan, in one transaction.
+- **Script jobs:** the agent writes a script, and the server runs it on a schedule in the sandbox, with limits per user.
+
 The agent gets no AWS credentials of its own. It uses the server's compute only through the job system.
 
 ## Architecture
