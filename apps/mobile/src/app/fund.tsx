@@ -16,16 +16,16 @@ export default function Fund() {
 
   if (!target.ok) {
     return (
-      <Screen edges={["bottom"]}>
-        <Text style={type.title}>Deposit to Mona-DeFi</Text>
+      <Screen>
+        <Text style={type.largeTitle}>Deposit to Mona-DeFi</Text>
         <Notice tone="bad">{target.error}</Notice>
       </Screen>
     );
   }
 
   return (
-    <Screen edges={["bottom"]}>
-      <Text style={type.title}>Deposit to Mona-DeFi</Text>
+    <Screen>
+      <Text style={type.largeTitle}>Deposit to Mona-DeFi</Text>
       <Destination address={target.address} title="Deposit to your Mona-DeFi wallet" warn />
       {mm.status === "searching" && <SkeletonRows rows={1} />}
       {mm.status === "missing" && <NoMetaMask to={target.address} onRetry={mm.retry} />}

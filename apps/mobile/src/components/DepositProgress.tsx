@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { AddressQr } from "@/components/AddressQr";
+import { Brand, Logo } from "@/components/Logo";
 import { Button, Card, CopyButton, KeyValue, LinkText, Notice, haptic } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
 import type { AuroraDeposit } from "@/lib/api/types";
@@ -14,7 +15,7 @@ import { fixed } from "@/lib/format";
 import { keys } from "@/lib/queries";
 import { ensureSession } from "@/lib/session";
 import { signMessage, signTypedPayload } from "@/lib/wallet";
-import { colors, radius, space, type } from "@/theme";
+import { colors, fonts, radius, space, type } from "@/theme";
 
 /**
  * Connect mode: personal_sign of `signPayload.payload_json`, verbatim, with the Mera wallet.
@@ -117,6 +118,13 @@ export function DepositProgress({ initial, onDone, onLeave }: { initial: AuroraD
   return (
     <>
       <Card style={styles.gap}>
+        <View style={styles.headRow}>
+          <Logo kind="chain" id={d.originChain} size={28} badge={{ kind: "protocol", id: "aurora" }} />
+          <View style={styles.flex}>
+            <Text style={type.h2}>Deposit from {d.originChain.toUpperCase()}</Text>
+            <Brand id="aurora" label="Aurora Intents" size={14} />
+          </View>
+        </View>
         <Notice tone={tone} icon={isFinal(phase) ? undefined : "sync"}>
           {PHASE_TEXT[phase]}
           {d.error ? ` ${d.error}` : ""}
@@ -189,9 +197,11 @@ export function DepositProgress({ initial, onDone, onLeave }: { initial: AuroraD
 
 const styles = StyleSheet.create({
   gap: { gap: space.sm },
+  flex: { flex: 1 },
+  headRow: { flexDirection: "row", alignItems: "center", gap: space.md },
   top: { marginTop: space.md },
   center: { textAlign: "center" },
-  input: { backgroundColor: colors.raised, borderRadius: radius.md, color: colors.ink, paddingHorizontal: space.md, height: 46, fontSize: 16 },
+  input: { ...fonts.sans, backgroundColor: colors.raised, borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line, color: colors.ink, paddingHorizontal: space.md, height: 48, fontSize: 16 },
   memo: { gap: space.sm, alignItems: "center", alignSelf: "stretch" },
   step: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: 2 },
   stepDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: colors.line, alignItems: "center", justifyContent: "center" },

@@ -43,7 +43,7 @@ npx tsc --noEmit        # typecheck
 | Name | Default | Use |
 |---|---|---|
 | `EXPO_PUBLIC_API_URL` | `http://localhost:8787` | Base URL of `apps/api`. On a device, use the LAN IP of your computer or an HTTPS tunnel, not `localhost`. |
-| `EXPO_PUBLIC_RP_ID` | `app.3-83-183-92.sslip.io` | Passkey relying party id. It must be a domain that serves the two files below. The app config also writes it into the iOS associated domains. |
+| `EXPO_PUBLIC_RP_ID` | `mona-defi.vercel.app` | Passkey relying party id. It must be a domain that serves the two files below. The app config also writes it into the iOS associated domains. |
 | `EXPO_PUBLIC_MONAD_RPC` | `https://rpc.monad.xyz` | Monad RPC. The app reads only the wallet nonce for the EIP-7702 authorization. |
 | `MONADEFI_BUNDLE_ID` | `xyz.monadefi.app` | iOS bundle id and Android package. Change it to an id that your Apple team owns. |
 
@@ -51,7 +51,7 @@ Expo puts `EXPO_PUBLIC_*` values into the bundle at build time. Restart Metro af
 
 ## Associated domains (needed for passkeys)
 
-The relying party domain must say that the app may use its passkeys. Templates are in `well-known/`. Host both on `https://<RP_ID>/.well-known/` over HTTPS, as `application/json`, with no redirect.
+The relying party domain must say that the app may use its passkeys. Templates are in `well-known/`. Host both on `https://<RP_ID>/.well-known/` over HTTPS, as `application/json`, with no redirect. A copy is in `public/.well-known/`: the web export puts it in `dist/.well-known/`, and Vercel (mona-defi.vercel.app) serves it with the headers in `vercel.json`. Keep the two copies the same.
 
 1. `apple-app-site-association`: replace `TEAM_ID` with your Apple team id, and `xyz.monadefi.app` with your bundle id.
 
@@ -70,7 +70,7 @@ The app config adds `webcredentials:<RP_ID>` to the iOS entitlements (`app.confi
 
 ```sh
 npx expo prebuild --no-install
-cat ios/MonaDeFi/MonaDeFi.entitlements    # webcredentials:app.3-83-183-92.sslip.io
+cat ios/MonaDeFi/MonaDeFi.entitlements    # webcredentials:mona-defi.vercel.app
 ```
 
 Apple caches the association file through its CDN. After you change the file, delete and reinstall the app. In development you can add `?mode=developer` to the entitlement and turn on Associated Domains Development in the iOS developer settings.
@@ -99,7 +99,7 @@ Set `EXPO_PUBLIC_RP_ID` and `EXPO_PUBLIC_API_URL` in the profile `env` or as EAS
 Mona-DeFi also runs as a mobile website. You do not install an app. The website uses the same passkey and the same wallet as the native app.
 
 1. On an iPhone with iOS 18 or later, open Settings > [your name] > iCloud > Passwords and Keychain. Make sure that iCloud Keychain is on.
-2. In Safari, open https://app.3-83-183-92.sslip.io.
+2. In Safari, open https://mona-defi.vercel.app.
 3. Tap **Create account with passkey**. Confirm with Face ID or Touch ID.
 4. Optional: tap Share > **Add to Home Screen**. Mona-DeFi then opens full screen, like an app.
 
@@ -167,6 +167,14 @@ A stored token is used only when its address equals the address that the passkey
 6. **1:35 Perpl trade.** "Preview with the changes" → the confirm sheet shows what Nansen changed → Confirm (haptic). The result shows the fill price and the Monadscan link.
 7. **1:50 Stateless.** Settings → Sign out (or delete the app). Sign in with the passkey: the same address and the same open position come back.
 
+## Fonts (licensed, not in the repo)
+
+The app uses the Coinbase Sans, Display and Mono fonts. The files are licensed, so `assets/fonts/` and `public/fonts/` are gitignored.
+
+- Put these files in `assets/fonts/`: `CoinbaseSans-{Regular,Medium,Bold}`, `CoinbaseDisplay-{Medium,Bold}` and `CoinbaseMono-{Regular,Medium}`, each as `.ttf` (native) and `.woff2` (web).
+- `scripts/gen-fonts.mjs` runs on postinstall, before prebuild and before each export. It writes `src/lib/fonts.generated.ts` (the TTF map for expo-font) and copies the woff2 files to `public/fonts/`. The web export then serves them from `/fonts/`.
+- Without the files, the map is empty and the app uses the system font.
+
 ## Tests and checks
 
 ```sh
@@ -194,7 +202,7 @@ npx expo-doctor
 app.config.ts          app name, bundle id, associated domains, iOS 18 / Android 28
 eas.json               EAS build profiles
 index.ts               polyfills, then expo-router/entry
-well-known/            apple-app-site-association and assetlinks.json templates
+well-known/            apple-app-site-association and assetlinks.json templates (copied to public/.well-known/ for Vercel)
 public/                web template (index.html with home screen meta tags), manifest.webmanifest, icons
 src/polyfills.ts       crypto.getRandomValues from expo-crypto (Mera React Native guide); polyfills.web.ts is empty
 src/app/               screens (Expo Router)

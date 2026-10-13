@@ -1,5 +1,6 @@
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
+import { Brand, Logo } from "@/components/Logo";
 import { OrderBook } from "@/components/OrderBook";
 import { PriceChart } from "@/components/PriceChart";
 import { Button, Card, ErrorState, KeyValue, Screen, SectionTitle, Skeleton } from "@/components/ui";
@@ -7,7 +8,7 @@ import { errorMessage } from "@/lib/api/client";
 import { num, pct, price, usd } from "@/lib/format";
 import { fundingApr } from "@/lib/markets";
 import { useBook, useCandles, useMarkets } from "@/lib/queries";
-import { colors, space, type } from "@/theme";
+import { colors, fonts, space, type } from "@/theme";
 
 export default function MarketDetail() {
   const { symbol = "" } = useLocalSearchParams<{ symbol: string }>();
@@ -18,21 +19,29 @@ export default function MarketDetail() {
   const up = (m?.change24hPct ?? 0) >= 0;
 
   return (
-    <Screen edges={["bottom"]} refreshing={candles.isRefetching} onRefresh={() => { void candles.refetch(); void book.refetch(); void markets.refetch(); }}>
+    <Screen refreshing={candles.isRefetching} onRefresh={() => { void candles.refetch(); void book.refetch(); void markets.refetch(); }}>
       <Stack.Screen options={{ title: `${symbol}-PERP` }} />
-      <View>
-        <Text style={type.label}>{symbol} mark price</Text>
+      <Card>
+        <View style={styles.head}>
+          <Logo kind="token" id={symbol} size={40} badge={{ kind: "protocol", id: "perpl" }} />
+          <View style={styles.flex}>
+            <Text style={type.label}>{symbol} mark price</Text>
+            <Brand id="perpl" label="Perpl perpetual on Monad" size={14} />
+          </View>
+        </View>
         {m ? (
           <>
             <Text style={[type.hero, styles.hero]}>{price(m.markPx)}</Text>
-            <Text style={[type.small, { color: up ? colors.good : colors.bad }]}>{`${up ? "+" : ""}${num(m.change24hPct, 2)}% in 24h`}</Text>
+            <View style={[styles.change, { backgroundColor: up ? colors.goodSoft : colors.badSoft }]}>
+              <Text style={[type.small, styles.changeText, { color: up ? colors.good : colors.bad }]}>{`${up ? "+" : ""}${num(m.change24hPct, 2)}% in 24h`}</Text>
+            </View>
           </>
         ) : markets.error ? (
           <Text style={[type.small, { color: colors.warn }]}>{errorMessage(markets.error)}</Text>
         ) : (
           <Skeleton width={180} height={44} style={{ marginTop: space.sm }} />
         )}
-      </View>
+      </Card>
 
       <Card>
         {candles.isLoading ? (
@@ -72,6 +81,9 @@ export default function MarketDetail() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  hero: { marginTop: space.xs },
+  hero: { marginTop: space.md },
+  head: { flexDirection: "row", alignItems: "center", gap: space.md },
+  change: { alignSelf: "flex-start", borderRadius: 7, paddingHorizontal: 8, paddingVertical: 2, marginTop: space.xs },
+  changeText: { ...fonts.sansBold },
   cta: { flexDirection: "row", gap: space.md },
 });

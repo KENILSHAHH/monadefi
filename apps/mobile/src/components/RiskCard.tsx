@@ -2,7 +2,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { StyleSheet, Text, View } from "react-native";
 import type { RiskSegment, RiskSignal, RiskVerdict } from "@/lib/api/types";
 import { num } from "@/lib/format";
-import { colors, radius, space, type } from "@/theme";
+import { colors, fonts, radius, space, type } from "@/theme";
+import { Brand, Logo } from "./Logo";
 import { Card, Pill } from "./ui";
 
 const SEGMENT_LABEL: Record<RiskSegment, string> = {
@@ -31,9 +32,14 @@ export function RiskCard({ risk }: { risk: RiskVerdict }) {
   const d = DECISION[risk.decision];
   const scorePct = Math.max(0, Math.min(100, (risk.score + 100) / 2));
   return (
-    <Card style={[styles.card, { borderColor: toneColor[d.tone] }]}>
+    <Card style={[styles.card, { borderColor: `${toneColor[d.tone]}88`, borderWidth: 1 }]}>
       <View style={styles.head}>
-        <Ionicons name={d.icon} size={22} color={toneColor[d.tone]} />
+        <View>
+          <Logo kind="protocol" id="nansen" size={36} />
+          <View style={[styles.decision, { backgroundColor: toneColor[d.tone] }]}>
+            <Ionicons name={d.icon} size={11} color="#0B0D10" />
+          </View>
+        </View>
         <View style={styles.flex}>
           <Text style={type.h2}>Nansen risk check: {d.label}</Text>
           <Text style={type.small}>
@@ -89,7 +95,12 @@ export function RiskCard({ risk }: { risk: RiskVerdict }) {
           ))}
         </View>
       )}
-      <Text style={[type.tiny, styles.footer]}>Wallet labels and flows by Nansen · {risk.cached ? "cached" : "live"} · {new Date(risk.asOf).toLocaleTimeString()}</Text>
+      <View style={styles.footerRow}>
+        <Brand id="nansen" label="Wallet labels and flows by Nansen" size={14} color={colors.faint} />
+        <Text style={type.tiny}>
+          {risk.cached ? "cached" : "live"} · {new Date(risk.asOf).toLocaleTimeString()}
+        </Text>
+      </View>
     </Card>
   );
 }
@@ -103,7 +114,7 @@ function SignalRow({ signal }: { signal: RiskSignal }) {
         <Ionicons name={icon} size={14} color={color} />
       </View>
       <View style={styles.flex}>
-        <Text style={[type.small, { color: colors.ink, fontWeight: "600" }]}>{SEGMENT_LABEL[signal.segment] ?? signal.segment}</Text>
+        <Text style={[type.small, styles.segment]}>{SEGMENT_LABEL[signal.segment] ?? signal.segment}</Text>
         <Text style={type.small}>{signal.label}</Text>
       </View>
       <Text style={[type.tiny, styles.window]}>{signal.window}</Text>
@@ -113,12 +124,12 @@ function SignalRow({ signal }: { signal: RiskSignal }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  card: { gap: space.md, borderWidth: 1 },
+  card: { gap: space.md },
   head: { flexDirection: "row", alignItems: "center", gap: space.md },
   meter: { height: 34, justifyContent: "flex-start" },
   meterTrack: { position: "absolute", top: 6, left: 0, right: 0, height: 4, borderRadius: 2, backgroundColor: colors.raised },
   meterMid: { position: "absolute", top: 2, left: "50%", width: 1, height: 12, backgroundColor: colors.line },
-  meterDot: { position: "absolute", top: 2, width: 12, height: 12, borderRadius: 6, marginLeft: -6, borderWidth: 2, borderColor: colors.panel },
+  meterDot: { position: "absolute", top: 2, width: 12, height: 12, borderRadius: 6, marginLeft: -6, borderWidth: 2, borderColor: colors.bg },
   meterLabels: { position: "absolute", top: 18, left: 0, right: 0, flexDirection: "row", justifyContent: "space-between" },
   block: { gap: space.sm },
   change: { flexDirection: "row", gap: space.sm, backgroundColor: colors.warnSoft, padding: space.md, borderRadius: radius.md },
@@ -126,5 +137,7 @@ const styles = StyleSheet.create({
   signal: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: 4 },
   signalIcon: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   window: { alignSelf: "flex-start", marginTop: 2 },
-  footer: { marginTop: -space.xs },
+  footerRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: space.sm },
+  segment: { ...fonts.sansBold, color: colors.ink },
+  decision: { position: "absolute", right: -3, bottom: -3, width: 17, height: 17, borderRadius: 9, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#0B0D10" },
 });

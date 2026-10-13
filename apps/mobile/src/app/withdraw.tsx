@@ -2,13 +2,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { isAddress, type Address } from "viem";
+import { Logo } from "@/components/Logo";
 import { Button, Card, Chip, KeyValue, LinkText, Notice, Screen, Segmented, haptic } from "@/components/ui";
 import { errorMessage } from "@/lib/api/client";
 import { fixed, parseAmount } from "@/lib/format";
 import { keys, useBalance, useSessionStatus } from "@/lib/queries";
 import { ensureSession } from "@/lib/session";
 import { ausdTransferCall, perplWithdrawCall, relay } from "@/lib/wallet";
-import { colors, radius, space, type } from "@/theme";
+import { colors, fonts, radius, space, type } from "@/theme";
 
 type Mode = "perpl" | "wallet";
 
@@ -67,7 +68,7 @@ export default function Withdraw() {
   }
 
   return (
-    <Screen edges={["bottom"]}>
+    <Screen>
       <Segmented value={mode} onChange={(m) => { setMode(m); setDone(null); setError(null); }} options={[{ value: "perpl", label: "Perpl → wallet" }, { value: "wallet", label: "Wallet → address" }]} />
 
       {session.data && !upgraded && (
@@ -77,7 +78,13 @@ export default function Withdraw() {
       )}
 
       <Card style={styles.gap}>
-        <KeyValue label={mode === "perpl" ? "Free on Perpl" : "AUSD in wallet"} value={`${fixed(max, 2)} AUSD`} />
+        <View style={styles.from}>
+          <Logo kind={mode === "perpl" ? "protocol" : "token"} id={mode === "perpl" ? "perpl" : "ausd"} size={32} badge={{ kind: "chain", id: "monad" }} />
+          <View style={styles.flex}>
+            <Text style={type.small}>{mode === "perpl" ? "Free on Perpl" : "AUSD in wallet"}</Text>
+            <Text style={type.numBold}>{fixed(max, 2)} AUSD</Text>
+          </View>
+        </View>
         {mode === "perpl" && <Text style={type.tiny}>Only the free balance can leave Perpl. Margin in open positions stays.</Text>}
         <View style={styles.amountRow}>
           <TextInput value={amountText} onChangeText={setAmountText} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={colors.faint} style={styles.amount} accessibilityLabel="Amount in AUSD" />
@@ -109,8 +116,10 @@ export default function Withdraw() {
 
 const styles = StyleSheet.create({
   gap: { gap: space.sm },
+  flex: { flex: 1 },
+  from: { flexDirection: "row", alignItems: "center", gap: space.md },
   center: { textAlign: "center" },
   amountRow: { flexDirection: "row", alignItems: "center", gap: space.md },
-  amount: { flex: 1, fontSize: 32, fontWeight: "700", color: colors.ink, fontVariant: ["tabular-nums"] },
-  input: { backgroundColor: colors.raised, borderRadius: radius.md, color: colors.ink, paddingHorizontal: space.md, height: 46, fontSize: 15 },
+  amount: { ...fonts.displayBold, flex: 1, minWidth: 0, fontSize: 34, color: colors.ink, fontVariant: ["tabular-nums"] },
+  input: { ...fonts.mono, backgroundColor: colors.raised, borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line, color: colors.ink, paddingHorizontal: space.md, height: 48, fontSize: 14 },
 });

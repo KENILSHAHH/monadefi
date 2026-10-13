@@ -9,6 +9,7 @@ import { keys } from "@/lib/queries";
 import { ensureSession, ensureSessionBefore, isSessionConflict, isSessionFailure, sessionManager } from "@/lib/session";
 import { colors, space, type } from "@/theme";
 import { IntentResultView, IntentRows, StatusPill, intentTitle } from "./IntentDetails";
+import { Logo } from "./Logo";
 import { Button, Notice, haptic } from "./ui";
 
 /**
@@ -40,6 +41,7 @@ export function IntentConfirm({
   const [needsSession, setNeedsSession] = useState(false);
   // A newer state of the same intent from the chat stream wins over the local one while it is pending.
   const shown = intent.status === "pending" && initial.status !== "pending" ? initial : intent;
+  const market = typeof shown.preview?.market === "string" ? shown.preview.market : null;
 
   /** Set the session up again after the server said it is off. Returns false (and shows why) when it is still off. */
   async function repairSession(): Promise<boolean> {
@@ -104,8 +106,14 @@ export function IntentConfirm({
   return (
     <View style={styles.wrap}>
       <View style={styles.head}>
-        <Text style={compact ? type.h2 : type.title}>{intentTitle(shown)}</Text>
-        <StatusPill status={shown.status} />
+        <Logo kind={market ? "token" : "protocol"} id={market ?? (shown.kind === "perpl" ? "perpl" : "monad")} size={compact ? 32 : 40} badge={market && shown.kind === "perpl" ? { kind: "protocol", id: "perpl" } : null} />
+        <View style={styles.titleBox}>
+          <Text style={compact ? type.h2 : type.title} numberOfLines={2}>
+            {intentTitle(shown)}
+            {market ? ` · ${market}` : ""}
+          </Text>
+          <StatusPill status={shown.status} />
+        </View>
       </View>
       <IntentRows intent={shown} />
       <IntentResultView intent={shown} />
@@ -133,7 +141,8 @@ export function IntentConfirm({
 
 const styles = StyleSheet.create({
   wrap: { gap: space.sm },
-  head: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: space.md, marginBottom: space.xs },
+  head: { flexDirection: "row", alignItems: "center", gap: space.md, marginBottom: space.xs },
+  titleBox: { flex: 1, gap: 4 },
   fee: { color: colors.dim, marginTop: space.xs },
   buttons: { flexDirection: "row", gap: space.md, marginTop: space.xs },
   flex: { flex: 1 },

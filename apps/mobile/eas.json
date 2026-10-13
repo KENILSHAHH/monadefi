@@ -4,15 +4,15 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "env": { "EXPO_PUBLIC_API_URL": "https://api.3-83-183-92.sslip.io", "EXPO_PUBLIC_RP_ID": "app.3-83-183-92.sslip.io" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://api.3-83-183-92.sslip.io", "EXPO_PUBLIC_RP_ID": "mona-defi.vercel.app" }
     },
     "preview": {
       "distribution": "internal",
-      "env": { "EXPO_PUBLIC_API_URL": "https://api.3-83-183-92.sslip.io", "EXPO_PUBLIC_RP_ID": "app.3-83-183-92.sslip.io" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://api.3-83-183-92.sslip.io", "EXPO_PUBLIC_RP_ID": "mona-defi.vercel.app" }
     },
     "production": {
       "autoIncrement": true,
-      "env": { "EXPO_PUBLIC_API_URL": "https://api.3-83-183-92.sslip.io", "EXPO_PUBLIC_RP_ID": "app.3-83-183-92.sslip.io" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://api.3-83-183-92.sslip.io", "EXPO_PUBLIC_RP_ID": "mona-defi.vercel.app" }
     }
   },
   "submit": { "production": {} }

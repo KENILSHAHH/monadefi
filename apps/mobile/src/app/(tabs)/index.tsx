@@ -4,15 +4,16 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { IntentConfirm } from "@/components/IntentConfirm";
+import { Logo } from "@/components/Logo";
 import { PositionRow } from "@/components/PositionRow";
-import { Button, Card, Divider, EmptyState, ErrorState, KeyValue, Notice, Screen, SectionTitle, Sheet, Skeleton, SkeletonRows, haptic } from "@/components/ui";
+import { Button, Card, Divider, EmptyState, ErrorState, IconButton, KeyValue, Notice, Screen, SectionTitle, Sheet, Skeleton, SkeletonRows, haptic, type IconName } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
 import type { Intent, PerplPosition } from "@/lib/api/types";
 import { useAddress } from "@/lib/auth/AuthProvider";
 import { fixed, num, price, short, signedUsd, usd } from "@/lib/format";
 import { keys, useBalance, usePositions } from "@/lib/queries";
 import { useTradingSession } from "@/lib/session";
-import { colors, radius, space, type } from "@/theme";
+import { colors, fonts, radius, space, type } from "@/theme";
 
 export default function Home() {
   const address = useAddress();
@@ -34,16 +35,20 @@ export default function Home() {
   const pnl = list.reduce((s, p) => s + p.unrealizedPnl, 0);
 
   return (
-    <Screen refreshing={refreshing} onRefresh={refresh}>
-      <View style={styles.header}>
-        <View>
-          <Text style={type.title}>Mona-DeFi</Text>
-          <Text style={[type.mono, { color: colors.faint }]}>{short(address)} · Monad</Text>
+    <Screen
+      title="Mona-DeFi"
+      subtitle={
+        <View style={styles.addressLine}>
+          <Logo kind="chain" id="monad" size={14} />
+          <Text style={[type.mono, styles.address]} numberOfLines={1}>
+            {short(address)} · Monad
+          </Text>
         </View>
-        <Pressable onPress={() => router.push("/deposit")} style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Add funds">
-          <Ionicons name="qr-code-outline" size={20} color={colors.ink} />
-        </Pressable>
-      </View>
+      }
+      right={<IconButton icon="qr-code-outline" label="Add funds" onPress={() => router.push("/deposit")} />}
+      refreshing={refreshing}
+      onRefresh={refresh}
+    >
 
       {trading.phase === "revoked" && (
         <Pressable onPress={() => router.push("/(tabs)/settings")} accessibilityRole="button">
@@ -51,8 +56,11 @@ export default function Home() {
         </Pressable>
       )}
 
-      <Card>
-        <Text style={type.label}>AUSD balance</Text>
+      <Card style={styles.balanceCard}>
+        <View style={styles.balanceHead}>
+          <Logo kind="token" id="ausd" size={22} badge={{ kind: "chain", id: "monad" }} />
+          <Text style={type.label}>AUSD balance</Text>
+        </View>
         {balance.isLoading ? (
           <Skeleton width={200} height={44} style={{ marginTop: space.sm }} />
         ) : balance.error ? (
@@ -70,16 +78,21 @@ export default function Home() {
               <Part label="In positions" value={(balance.data?.ausd.inPositions ?? 0) + (balance.data?.ausd.perplLocked ?? 0)} />
             </View>
             {balance.data && (balance.data.usdc > 0 || balance.data.mon > 0) && (
-              <Text style={[type.tiny, styles.other]}>
-                Also in the wallet: {num(balance.data.usdc, 2)} USDC · {num(balance.data.mon, 4)} MON · total {usd(balance.data.totalUsd)}
-              </Text>
+              <View style={styles.other}>
+                <Text style={type.tiny}>Also in the wallet</Text>
+                <View style={styles.otherRow}>
+                  <Asset id="usdc" text={`${num(balance.data.usdc, 2)} USDC`} />
+                  <Asset id="mon" text={`${num(balance.data.mon, 4)} MON`} />
+                  <Text style={[type.tiny, styles.total]}>total {usd(balance.data.totalUsd)}</Text>
+                </View>
+              </View>
             )}
           </>
         )}
         <View style={styles.actions}>
-          <Button title="Add funds" icon="add" onPress={() => router.push("/deposit")} style={styles.flex} compact />
-          <Button title="Trade" icon="swap-vertical" variant="secondary" onPress={() => router.push("/(tabs)/markets")} style={styles.flex} compact />
-          <Button title="Withdraw" icon="arrow-up" variant="secondary" onPress={() => router.push("/withdraw")} style={styles.flex} compact />
+          <Action icon="add" label="Add funds" primary onPress={() => router.push("/deposit")} />
+          <Action icon="swap-vertical" label="Trade" onPress={() => router.push("/(tabs)/markets")} />
+          <Action icon="arrow-up" label="Withdraw" onPress={() => router.push("/withdraw")} />
         </View>
       </Card>
 
@@ -91,19 +104,43 @@ export default function Home() {
       ) : list.length === 0 ? (
         <EmptyState icon="pulse-outline" title="No open position" message="Pick a market, size the trade, and the Nansen check runs before you confirm." action={<Button compact title="See markets" variant="secondary" onPress={() => router.push("/(tabs)/markets")} />} />
       ) : (
-        <Card style={styles.listCard}>
-          {list.map((p, i) => (
-            <View key={`${p.marketId}-${p.side}`}>
-              {i > 0 && <View style={styles.sep} />}
-              <PositionRow position={p} onPress={() => setSelected(p)} />
-            </View>
-          ))}
-        </Card>
+        list.map((p) => <PositionRow key={`${p.marketId}-${p.side}`} position={p} onPress={() => setSelected(p)} />)
       )}
       {positions.data && positions.data.errors.length > 0 && <Notice>Some sources did not answer, so this view can be incomplete: {positions.data.errors.join("; ")}</Notice>}
 
       <PositionSheet position={selected} onClose={() => setSelected(null)} />
     </Screen>
+  );
+}
+
+/** A round action button with its label below (the Apple Wallet style). */
+function Action({ icon, label, onPress, primary }: { icon: IconName; label: string; onPress: () => void; primary?: boolean }) {
+  return (
+    <Pressable
+      onPress={() => {
+        haptic.tap();
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+    >
+      <View style={[styles.actionIcon, primary && styles.actionPrimary]}>
+        <Ionicons name={icon} size={22} color={primary ? "#FFFFFF" : colors.ink} />
+      </View>
+      <Text style={[type.small, styles.actionLabel]} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function Asset({ id, text }: { id: string; text: string }) {
+  return (
+    <View style={styles.asset}>
+      <Logo kind="token" id={id} size={16} />
+      <Text style={[type.small, styles.assetText]}>{text}</Text>
+    </View>
   );
 }
 
@@ -141,6 +178,10 @@ function PositionSheet({ position: p, onClose }: { position: PerplPosition | nul
     <Sheet visible={p !== null} onClose={close} title={p ? `${p.market} ${p.side}` : ""}>
       {p && !intent && (
         <View style={styles.sheetBody}>
+          <View style={styles.sheetLogo}>
+            <Logo kind="token" id={p.market} size={40} />
+            <Text style={[type.hero, { color: p.unrealizedPnl >= 0 ? colors.good : colors.bad }]}>{signedUsd(p.unrealizedPnl)}</Text>
+          </View>
           <KeyValue label="Size" value={`${num(p.size, 6)} ${p.market}`} />
           <KeyValue label="Entry" value={price(p.entryPx)} />
           <KeyValue label="Mark" value={price(p.markPx)} />
@@ -166,16 +207,26 @@ function PositionSheet({ position: p, onClose }: { position: PerplPosition | nul
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  iconButton: { width: 42, height: 42, borderRadius: radius.md, backgroundColor: colors.raised, alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
+  addressLine: { flexDirection: "row", alignItems: "center", gap: 6 },
+  address: { color: colors.dim, flexShrink: 1 },
+  balanceCard: { paddingVertical: space.xl },
+  balanceHead: { flexDirection: "row", alignItems: "center", gap: space.sm },
   hero: { marginTop: space.sm },
-  unit: { fontSize: 18, fontWeight: "600", color: colors.dim, letterSpacing: 0 },
+  unit: { ...fonts.display, fontSize: 18, color: colors.dim, letterSpacing: 0 },
   breakdown: { flexDirection: "row", marginTop: space.lg, gap: space.sm },
-  part: { flex: 1, backgroundColor: colors.raised, borderRadius: radius.md, padding: space.md, gap: 2 },
-  partValue: { fontWeight: "600" },
-  other: { marginTop: space.md },
-  actions: { flexDirection: "row", gap: space.sm, marginTop: space.lg },
-  listCard: { paddingVertical: 0 },
-  sep: { height: StyleSheet.hairlineWidth, backgroundColor: colors.line },
+  part: { flex: 1, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: radius.md, padding: space.md, gap: 3, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
+  partValue: { ...fonts.sansBold },
+  other: { marginTop: space.lg, gap: 6 },
+  otherRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: space.md },
+  asset: { flexDirection: "row", alignItems: "center", gap: 6 },
+  assetText: { color: colors.ink },
+  total: { marginLeft: "auto" },
+  actions: { flexDirection: "row", justifyContent: "space-around", marginTop: space.xl },
+  action: { alignItems: "center", gap: 6, minWidth: 76, minHeight: 44 },
+  actionPressed: { opacity: 0.8, transform: [{ scale: 0.96 }] },
+  actionIcon: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.09)", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
+  actionPrimary: { backgroundColor: colors.accent, borderColor: "rgba(255,255,255,0.18)", boxShadow: "0px 6px 18px rgba(131,110,249,0.4)" },
+  actionLabel: { color: colors.ink },
   sheetBody: { gap: space.sm, paddingBottom: space.md },
+  sheetLogo: { flexDirection: "row", alignItems: "center", gap: space.md, marginBottom: space.sm },
 });

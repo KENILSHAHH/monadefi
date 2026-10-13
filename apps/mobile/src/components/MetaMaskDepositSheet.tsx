@@ -6,9 +6,10 @@
  */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import type { Address } from "viem";
 import { DepositProgress, signConnectOrder } from "@/components/DepositProgress";
+import { Brand, Logo } from "@/components/Logo";
 import { Destination, MonadDirect, NoMetaMask, StepList, useMetaMask } from "@/components/MetaMask";
 import { Button, Card, Chip, ErrorState, KeyValue, Notice, Segmented, Sheet, SkeletonRows, haptic } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
@@ -21,7 +22,7 @@ import {
 } from "@/lib/metamask/core";
 import { canUseProvider } from "@/lib/metamask/provider";
 import { keys } from "@/lib/queries";
-import { colors, radius, space, type } from "@/theme";
+import { colors, fonts, radius, space, type } from "@/theme";
 
 export function MetaMaskDepositSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   return (
@@ -175,16 +176,35 @@ function OtherChain({ provider, onClose }: { provider: Eip1193Provider; onClose:
       <Card style={styles.gap}>
         <Text style={type.h2}>Review the transfer</Text>
         <KeyValue label="From" value={short(prepared.from)} mono />
-        <KeyValue label="Network" value={prepared.chain.name} />
-        <KeyValue label="Amount" value={`${amountText(prepared.amount, prepared.token.decimals)} ${prepared.token.symbol}`} />
-        <Text style={[type.label, styles.top]}>Destination: Aurora deposit address</Text>
+        <KeyValue
+          label="Network"
+          value={
+            <View style={styles.row}>
+              <Logo kind="chain" id={prepared.chain.key} size={18} />
+              <Text style={type.num}>{prepared.chain.name}</Text>
+            </View>
+          }
+        />
+        <KeyValue
+          label="Amount"
+          value={
+            <View style={styles.row}>
+              <Logo kind="token" id={prepared.token.symbol} size={18} />
+              <Text style={type.num}>{`${amountText(prepared.amount, prepared.token.decimals)} ${prepared.token.symbol}`}</Text>
+            </View>
+          }
+        />
+        <View style={[styles.row, styles.top]}>
+          <Logo kind="protocol" id="aurora" size={16} />
+          <Text style={type.label}>Destination: Aurora deposit address</Text>
+        </View>
         <Text style={[type.mono, styles.full]} selectable>
           {prepared.destination}
         </Text>
         <Text style={type.tiny}>Aurora moves the funds to your Mona-DeFi wallet on Monad. A refund goes back to {short(prepared.from)}.</Text>
         <StepList steps={steps} current={step ?? 0} failed={Boolean(error)} />
         {error && <Notice tone="bad">{error}</Notice>}
-        <Button title="Confirm in MetaMask" icon="shield-checkmark-outline" loading={busy} onPress={() => void sendWithMetaMask()} />
+        <Button title="Confirm in MetaMask" leading={<Logo kind="protocol" id="metamask" size={22} />} loading={busy} onPress={() => void sendWithMetaMask()} />
         <Button title="Show deposit status" variant="ghost" compact onPress={() => setProgress(prepared.deposit)} />
       </Card>
     );
@@ -192,23 +212,28 @@ function OtherChain({ provider, onClose }: { provider: Eip1193Provider; onClose:
 
   return (
     <Card style={styles.gap}>
+      <View style={styles.brands}>
+        <Brand id="aurora" label="Aurora Intents" color={colors.ink} />
+        <Brand id="metamask" label="MetaMask" color={colors.ink} />
+      </View>
       <Text style={type.small}>Aurora brings funds from another chain to your Mona-DeFi wallet on Monad as AUSD. MetaMask sends one plain transfer.</Text>
       <Text style={[type.label, styles.top]}>From chain</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
         {chains.map((c) => (
-          <Chip key={c.key} label={c.name} active={c.key === chain.key} onPress={() => { setChainKey(c.key); setAssetId(null); setText(""); }} />
+          <Chip key={c.key} label={c.name} leading={<Logo kind="chain" id={c.key} size={22} />} active={c.key === chain.key} onPress={() => { setChainKey(c.key); setAssetId(null); setText(""); }} />
         ))}
       </ScrollView>
       <Text style={[type.label, styles.top]}>Token</Text>
       <View style={styles.wrap}>
         {chain.tokens.slice(0, 12).map((t) => (
-          <Chip key={t.assetId} label={t.symbol} active={t.assetId === token.assetId} onPress={() => { setAssetId(t.assetId); setText(""); }} />
+          <Chip key={t.assetId} label={t.symbol} leading={<Logo kind="token" id={t.symbol} size={22} badge={{ kind: "chain", id: chain.key }} />} active={t.assetId === token.assetId} onPress={() => { setAssetId(t.assetId); setText(""); }} />
         ))}
       </View>
       <Text style={[type.label, styles.top]}>Amount</Text>
       <TextInput value={text} onChangeText={setText} keyboardType="decimal-pad" placeholder={`Amount of ${token.symbol}`} placeholderTextColor={colors.faint} style={styles.input} accessibilityLabel="Amount" autoCorrect={false} />
       {parsed && !parsed.ok && <Text style={[type.tiny, { color: colors.warn }]}>{parsed.error}</Text>}
       <View style={[styles.row, styles.top]}>
+        <Logo kind="protocol" id="perpl" size={24} />
         <View style={styles.flex}>
           <Text style={type.body}>Move to Perpl when it arrives</Text>
           <Text style={type.tiny}>Needs trading turned on.</Text>
@@ -228,8 +253,9 @@ const styles = StyleSheet.create({
   gap: { gap: space.sm },
   top: { marginTop: space.sm },
   row: { flexDirection: "row", alignItems: "center", gap: space.md },
-  chips: { gap: space.sm },
+  chips: { gap: space.sm, paddingVertical: 2 },
+  brands: { flexDirection: "row", gap: space.lg, flexWrap: "wrap" },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
-  full: { color: colors.ink, backgroundColor: colors.raised, padding: space.sm, borderRadius: radius.sm },
-  input: { backgroundColor: colors.raised, borderRadius: radius.md, color: colors.ink, paddingHorizontal: space.md, height: 46, fontSize: 16 },
+  full: { color: colors.ink, backgroundColor: colors.raised, padding: space.sm, borderRadius: radius.sm, ...(Platform.OS === "web" ? ({ wordBreak: "break-all" } as object) : {}) },
+  input: { ...fonts.sans, backgroundColor: colors.raised, borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line, color: colors.ink, paddingHorizontal: space.md, height: 48, fontSize: 16 },
 });

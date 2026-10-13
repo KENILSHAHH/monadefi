@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { AddressQr } from "@/components/AddressQr";
 import { DepositProgress } from "@/components/DepositProgress";
+import { Brand, Logo } from "@/components/Logo";
 import { MetaMaskDepositSheet } from "@/components/MetaMaskDepositSheet";
 import { Button, Card, Chip, ErrorState, KeyValue, Notice, Screen, Segmented, SkeletonRows, haptic } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
@@ -10,14 +11,14 @@ import type { AuroraChain, AuroraDeposit } from "@/lib/api/types";
 import { useAddress } from "@/lib/auth/AuthProvider";
 import { eta, fixed, parseAmount } from "@/lib/format";
 import { keys, useBalance } from "@/lib/queries";
-import { colors, radius, space, type } from "@/theme";
+import { colors, fonts, radius, space, type } from "@/theme";
 
 export default function Deposit() {
   const [tab, setTab] = useState<"monad" | "any">("monad");
   const [metamask, setMetamask] = useState(false);
   return (
-    <Screen edges={["bottom"]}>
-      <Button title="Deposit from MetaMask" icon="wallet-outline" onPress={() => setMetamask(true)} />
+    <Screen>
+      <Button title="Deposit from MetaMask" leading={<Logo kind="protocol" id="metamask" size={22} />} onPress={() => setMetamask(true)} />
       <MetaMaskDepositSheet visible={metamask} onClose={() => setMetamask(false)} />
       <Segmented value={tab} onChange={setTab} options={[{ value: "monad", label: "Monad" }, { value: "any", label: "Any chain" }]} />
       {tab === "monad" ? <MonadTab /> : <AnyChainTab />}
@@ -40,7 +41,12 @@ function MonadTab() {
 
   return (
     <>
-      <Card>
+      <Card style={styles.gap}>
+        <View style={styles.row}>
+          <Logo kind="chain" id="monad" size={22} />
+          <Text style={type.h2}>Monad</Text>
+          <Text style={[type.tiny, styles.flex]}>chain 143</Text>
+        </View>
         <AddressQr value={address} caption="Send AUSD, USDC or MON on Monad (chain 143) to your Mona-DeFi address." />
       </Card>
       {received !== null ? (
@@ -48,10 +54,10 @@ function MonadTab() {
       ) : (
         <Notice tone="accent" icon="time-outline">Waiting for a transfer. This screen updates by itself.</Notice>
       )}
-      <Card>
-        <KeyValue label="AUSD in wallet" value={balance.data ? fixed(balance.data.ausd.wallet, 2) : "—"} />
-        <KeyValue label="USDC in wallet" value={balance.data ? fixed(balance.data.usdc, 2) : "—"} />
-        <KeyValue label="MON in wallet" value={balance.data ? fixed(balance.data.mon, 4) : "—"} />
+      <Card style={styles.gap}>
+        <TokenLine id="ausd" label="AUSD in wallet" value={balance.data ? fixed(balance.data.ausd.wallet, 2) : "—"} />
+        <TokenLine id="usdc" label="USDC in wallet" value={balance.data ? fixed(balance.data.usdc, 2) : "—"} />
+        <TokenLine id="mon" label="MON in wallet" value={balance.data ? fixed(balance.data.mon, 4) : "—"} />
         <Text style={[type.tiny, styles.top]}>Perpl takes AUSD only. Send AUSD to trade at once. Only send on Monad: other networks use the Any chain tab.</Text>
       </Card>
       {balance.error && <Notice>{errorMessage(balance.error)}</Notice>}
@@ -59,6 +65,15 @@ function MonadTab() {
   );
 }
 
+function TokenLine({ id, label, value }: { id: string; label: string; value: string }) {
+  return (
+    <View style={styles.row}>
+      <Logo kind="token" id={id} size={28} badge={{ kind: "chain", id: "monad" }} />
+      <Text style={[type.body, styles.flex]}>{label}</Text>
+      <Text style={type.numBold}>{value}</Text>
+    </View>
+  );
+}
 
 function AnyChainTab() {
   const address = useAddress();
@@ -115,12 +130,15 @@ function AnyChainTab() {
 
   return (
     <>
-      <Text style={type.small}>Aurora Intents brings funds from another chain to your Mona-DeFi wallet on Monad as AUSD.</Text>
+      <Card style={styles.gap}>
+        <Brand id="aurora" label="Aurora Intents" size={20} color={colors.ink} />
+        <Text style={type.small}>Aurora Intents brings funds from another chain to your Mona-DeFi wallet on Monad as AUSD.</Text>
+      </Card>
       <Card style={styles.gap}>
         <Text style={type.label}>From chain</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
           {chains.map((c) => (
-            <Chip key={c.chain} label={c.name} active={c.chain === chain.chain} onPress={() => { setChainKey(c.chain); setAssetId(null); setRefundText(""); }} />
+            <Chip key={c.chain} label={c.name} leading={<Logo kind="chain" id={c.chain} size={22} />} active={c.chain === chain.chain} onPress={() => { setChainKey(c.chain); setAssetId(null); setRefundText(""); }} />
           ))}
         </ScrollView>
         <Text style={type.tiny}>
@@ -129,7 +147,7 @@ function AnyChainTab() {
         <Text style={[type.label, styles.top]}>Asset</Text>
         <View style={styles.wrapChips}>
           {chain.tokens.slice(0, 12).map((t) => (
-            <Chip key={t.assetId} label={t.symbol} active={t.assetId === token.assetId} onPress={() => setAssetId(t.assetId)} />
+            <Chip key={t.assetId} label={t.symbol} leading={<Logo kind="token" id={t.symbol} size={22} badge={{ kind: "chain", id: chain.chain }} />} active={t.assetId === token.assetId} onPress={() => setAssetId(t.assetId)} />
           ))}
         </View>
         <Text style={[type.label, styles.top]}>Amount</Text>
@@ -144,6 +162,7 @@ function AnyChainTab() {
         <TextInput value={refundText} onChangeText={setRefundText} placeholder={chain.evm ? `Your Mona-DeFi address (${address.slice(0, 8)}…)` : `Your ${chain.name} address`} placeholderTextColor={colors.faint} style={styles.input} autoCapitalize="none" autoCorrect={false} accessibilityLabel="Refund address" />
         <Text style={type.tiny}>If the deposit cannot complete, Aurora sends the funds back here.</Text>
         <View style={[styles.toggle, styles.top]}>
+          <Logo kind="protocol" id="perpl" size={24} />
           <View style={styles.flex}>
             <Text style={type.body}>Move to Perpl when it arrives</Text>
             <Text style={type.tiny}>Needs trading turned on.</Text>
@@ -161,8 +180,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   gap: { gap: space.sm },
   top: { marginTop: space.md },
-  chips: { gap: space.sm },
+  chips: { gap: space.sm, paddingVertical: 2 },
+  row: { flexDirection: "row", alignItems: "center", gap: space.md, minHeight: 32 },
   wrapChips: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
-  input: { backgroundColor: colors.raised, borderRadius: radius.md, color: colors.ink, paddingHorizontal: space.md, height: 46, fontSize: 16 },
+  input: { ...fonts.sans, backgroundColor: colors.raised, borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line, color: colors.ink, paddingHorizontal: space.md, height: 48, fontSize: 16 },
   toggle: { flexDirection: "row", alignItems: "center", gap: space.md },
 });

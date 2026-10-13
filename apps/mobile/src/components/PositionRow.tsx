@@ -1,8 +1,9 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import type { PerplPosition } from "@/lib/api/types";
 import { num, price, signedUsd, usd } from "@/lib/format";
 import { colors, space, type } from "@/theme";
-import { Pill } from "./ui";
+import { Logo } from "./Logo";
+import { Card, Pill } from "./ui";
 
 /** Liquidation distance below this fraction is shown as a warning. */
 export const NEAR_LIQUIDATION = 0.08;
@@ -13,7 +14,8 @@ export function PositionRow({ position: p, onPress }: { position: PerplPosition;
   const pnlColor = p.unrealizedPnl >= 0 ? colors.good : colors.bad;
   const pnlPct = p.marginUsd > 0 ? (p.unrealizedPnl / p.marginUsd) * 100 : null;
   return (
-    <Pressable onPress={onPress} disabled={!onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel={`${p.market} ${p.side} position`}>
+    <Card onPress={onPress} style={styles.row} accessibilityLabel={`${p.market} ${p.side} position`}>
+      <Logo kind="token" id={p.market} size={36} />
       <View style={styles.flex}>
         <View style={styles.title}>
           <Text style={type.h2}>{p.market}</Text>
@@ -29,18 +31,17 @@ export function PositionRow({ position: p, onPress }: { position: PerplPosition;
         </Text>
       </View>
       <View style={styles.right}>
-        <Text style={[type.num, { color: pnlColor, fontWeight: "700" }]}>{signedUsd(p.unrealizedPnl)}</Text>
+        <Text style={[type.numBold, { color: pnlColor }]}>{signedUsd(p.unrealizedPnl)}</Text>
         {pnlPct !== null && <Text style={[type.tiny, { color: pnlColor }]}>{`${pnlPct >= 0 ? "+" : ""}${num(pnlPct, 1)}%`}</Text>}
         <Text style={type.tiny}>{usd(p.marginUsd)} margin</Text>
       </View>
-    </Pressable>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1, gap: 3 },
-  row: { flexDirection: "row", gap: space.md, paddingVertical: space.md },
-  pressed: { opacity: 0.7 },
+  row: { flexDirection: "row", gap: space.md, alignItems: "flex-start" },
   title: { flexDirection: "row", alignItems: "center", gap: space.sm },
   right: { alignItems: "flex-end", gap: 2 },
 });

@@ -120,17 +120,17 @@ export function StepsSummary({ message, durationMs }: { message: ChatMessage; du
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  line: { flexDirection: "row", alignItems: "center", gap: space.sm, height: 28, overflow: "hidden" },
-  lineMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: space.sm },
+  line: { flexDirection: "row", alignItems: "center", gap: space.sm, height: 36, overflow: "hidden", alignSelf: "flex-start", maxWidth: "100%", paddingHorizontal: space.md, borderRadius: 18, backgroundColor: "rgba(131,110,249,0.12)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(131,110,249,0.35)" },
+  lineMain: { flexShrink: 1, flexDirection: "row", alignItems: "center", gap: space.sm },
   lineText: { color: colors.ink, flexShrink: 1 },
   timer: { fontVariant: ["tabular-nums"], color: colors.faint },
   summary: { gap: space.sm, alignItems: "flex-start" },
   chip: {
-    flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: space.md, paddingVertical: 5,
-    borderRadius: radius.xl, backgroundColor: colors.panel, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line,
+    flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: space.md, minHeight: 32,
+    borderRadius: radius.xl, backgroundColor: "rgba(255,255,255,0.07)", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line,
   },
   chipText: { color: colors.dim, fontVariant: ["tabular-nums"] },
-  list: { alignSelf: "stretch", gap: space.sm, backgroundColor: colors.panel, borderRadius: radius.md, padding: space.md },
+  list: { alignSelf: "stretch", gap: space.sm, backgroundColor: "rgba(255,255,255,0.05)", borderRadius: radius.md, padding: space.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
   item: { flexDirection: "row", gap: space.sm },
   itemIcon: { marginTop: 1 },
   itemHead: { flexDirection: "row", alignItems: "center", gap: space.sm, justifyContent: "space-between" },

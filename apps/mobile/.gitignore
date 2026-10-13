@@ -42,3 +42,10 @@ yarn-error.*
 
 # local env
 .env
+.vercel
+
+# Licensed Coinbase fonts: only on the build machine and the server, never in the public repo.
+# scripts/gen-fonts.mjs writes the generated map (empty without the files) on postinstall.
+/assets/fonts/
+/public/fonts/
+/src/lib/fonts.generated.ts

@@ -1,11 +1,10 @@
 /** Renders an agent reply (Markdown) with the app theme. See lib/markdown.ts for the parser. */
 import { memo, useMemo } from "react";
-import { Platform, ScrollView, StyleSheet, Text, View, type TextStyle } from "react-native";
+import { ScrollView, StyleSheet, Text, View, type TextStyle } from "react-native";
 import { parseMarkdown, type Block, type Inline } from "@/lib/markdown";
-import { colors, radius, space, type } from "@/theme";
+import { colors, fonts, radius, space, type } from "@/theme";
 import { openLink } from "./ui";
 
-const mono = Platform.select({ ios: "Menlo", android: "monospace", default: "ui-monospace, Menlo, monospace" });
 
 function Spans({ inline, base }: { inline: Inline[]; base?: TextStyle }) {
   return (
@@ -114,14 +113,14 @@ const styles = StyleSheet.create({
   wrap: { gap: space.sm },
   // Numbers (AUSD amounts, prices) line up: tabular figures.
   text: { ...type.body, lineHeight: 22, fontVariant: ["tabular-nums"] },
-  bold: { fontWeight: "700" },
+  bold: { ...fonts.sansBold },
   italic: { fontStyle: "italic" },
   link: { color: colors.accent, textDecorationLine: "underline" },
   headTop: { marginTop: space.xs },
-  code: { fontFamily: mono, fontSize: 13, color: colors.ink, backgroundColor: colors.raised },
+  code: { ...fonts.mono, fontSize: 13, color: colors.ink, backgroundColor: colors.raised },
   codeBlock: { backgroundColor: colors.raised, borderRadius: radius.sm },
   codeInner: { padding: space.md },
-  codeText: { fontFamily: mono, fontSize: 12, color: colors.ink, lineHeight: 18 },
+  codeText: { ...fonts.mono, fontSize: 12, color: colors.ink, lineHeight: 18 },
   li: { flexDirection: "row", gap: space.sm },
   bullet: { minWidth: 16, color: colors.dim },
   quote: { borderLeftWidth: 3, borderLeftColor: colors.accent, paddingLeft: space.md },
@@ -129,7 +128,7 @@ const styles = StyleSheet.create({
   table: { borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line, borderRadius: radius.sm },
   tableInner: { flexGrow: 1 },
   row: { flexDirection: "row" },
-  headRow: { backgroundColor: colors.raised, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
+  headRow: { backgroundColor: "rgba(255,255,255,0.06)", borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
   rowLine: { borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
   cell: { ...type.small, color: colors.ink, fontVariant: ["tabular-nums"], minWidth: 84, maxWidth: 180, paddingHorizontal: space.sm, paddingVertical: 6 },
 });

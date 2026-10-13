@@ -95,7 +95,7 @@ describe("MetaMask error codes", () => {
 
 describe("links", () => {
   it("builds the MetaMask link from the current origin", () => {
-    expect(metamaskDeepLink("https://app.3-83-183-92.sslip.io", TO)).toBe(`https://metamask.app.link/dapp/app.3-83-183-92.sslip.io/fund?to=${TO}`);
+    expect(metamaskDeepLink("https://mona-defi.vercel.app", TO)).toBe(`https://metamask.app.link/dapp/mona-defi.vercel.app/fund?to=${TO}`);
     expect(metamaskDeepLink("http://localhost:8090/", TO)).toBe(`https://metamask.app.link/dapp/localhost:8090/fund?to=${TO}`);
   });
 

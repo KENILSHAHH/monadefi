@@ -4,8 +4,9 @@
  */
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { Address } from "viem";
+import { Logo } from "@/components/Logo";
 import { Button, Card, Chip, LinkText, Notice, haptic, openLink } from "@/components/ui";
 import { short } from "@/lib/format";
 import { monadBalance } from "@/lib/metamask/balances";
@@ -14,7 +15,7 @@ import {
   metamaskErrorMessage, monadTxUrl, parseTokenAmount, sendTransfer, switchChain, waitForReceipt, type Eip1193Provider, type MonadToken,
 } from "@/lib/metamask/core";
 import { appOrigin, findMetaMask, isPhoneBrowser, openExternal } from "@/lib/metamask/provider";
-import { colors, radius, space, type } from "@/theme";
+import { colors, fonts, radius, space, type } from "@/theme";
 
 // ── Provider ─────────────────────────────────────────────────────────────────
 
@@ -60,18 +61,24 @@ export function NoMetaMask({ to, onRetry }: { to: string; onRetry: () => void })
     const link = metamaskDeepLink(appOrigin(), to);
     return (
       <Card style={styles.gap}>
-        <Text style={type.h2}>Open in MetaMask</Text>
+        <View style={styles.row}>
+          <Logo kind="protocol" id="metamask" size={28} />
+          <Text style={type.h2}>Open in MetaMask</Text>
+        </View>
         <Text style={type.small}>The MetaMask app opens this deposit page in its browser. You confirm the transfer there. You do not need to sign in.</Text>
-        <Button title="Open in MetaMask" icon="open-outline" onPress={() => openExternal(link)} />
+        <Button title="Open in MetaMask" leading={<Logo kind="protocol" id="metamask" size={22} />} onPress={() => openExternal(link)} />
         <Text style={[type.tiny, styles.center]}>Install the MetaMask app first if you do not have it.</Text>
       </Card>
     );
   }
   return (
     <Card style={styles.gap}>
-      <Text style={type.h2}>MetaMask is not in this browser</Text>
+      <View style={styles.row}>
+        <Logo kind="protocol" id="metamask" size={28} />
+        <Text style={[type.h2, styles.flex]}>MetaMask is not in this browser</Text>
+      </View>
       <Text style={type.small}>Install the MetaMask extension, then reload or tap Try again.</Text>
-      <Button title="Install MetaMask" icon="download-outline" onPress={() => openLink(METAMASK_DOWNLOAD)} />
+      <Button title="Install MetaMask" leading={<Logo kind="protocol" id="metamask" size={22} />} onPress={() => openLink(METAMASK_DOWNLOAD)} />
       <Button title="Try again" variant="secondary" icon="refresh" onPress={onRetry} />
     </Card>
   );
@@ -84,6 +91,10 @@ export function Destination({ address, title, warn }: { address: string; title: 
   return (
     <Card style={styles.gap}>
       <Text style={type.label}>Destination</Text>
+      <View style={styles.row}>
+        <Logo kind="chain" id="monad" size={20} />
+        <Text style={[type.small, styles.flex]}>Monad · chain 143</Text>
+      </View>
       <Text style={type.body}>
         {title} <Text style={type.mono}>{short(address)}</Text>
       </Text>
@@ -210,7 +221,7 @@ export function MonadDirect({ provider, to, onSuccess }: { provider: Eip1193Prov
     return (
       <Card style={styles.gap}>
         <Text style={type.small}>Connect MetaMask to send funds on Monad (chain 143). MetaMask asks you to confirm one plain transfer. It signs nothing else.</Text>
-        <Button title="Connect MetaMask" icon="link-outline" loading={connecting} onPress={() => void connect()} />
+        <Button title="Connect MetaMask" leading={<Logo kind="protocol" id="metamask" size={22} />} loading={connecting} onPress={() => void connect()} />
         {connectError && <Notice tone="bad">{connectError}</Notice>}
       </Card>
     );
@@ -246,13 +257,16 @@ export function MonadDirect({ provider, to, onSuccess }: { provider: Eip1193Prov
 
   return (
     <Card style={styles.gap}>
-      <Text style={type.small}>
-        MetaMask account <Text style={type.mono}>{short(account)}</Text>
-      </Text>
+      <View style={styles.row}>
+        <Logo kind="protocol" id="metamask" size={20} />
+        <Text style={type.small}>
+          MetaMask account <Text style={type.mono}>{short(account)}</Text>
+        </Text>
+      </View>
       <Text style={[type.label, styles.top]}>Token on Monad</Text>
       <View style={styles.wrap}>
         {MONAD_TOKENS.map((t) => (
-          <Chip key={t.symbol} label={t.symbol} active={t.symbol === token.symbol} onPress={() => { setToken(t); setText(""); }} />
+          <Chip key={t.symbol} label={t.symbol} leading={<Logo kind="token" id={t.symbol} size={22} badge={{ kind: "chain", id: "monad" }} />} active={t.symbol === token.symbol} onPress={() => { setToken(t); setText(""); }} />
         ))}
       </View>
       <Text style={type.tiny}>Perpl trades with AUSD. USDC is changed to AUSD when you trade or with the deposit tools.</Text>
@@ -282,7 +296,7 @@ export function MonadDirect({ provider, to, onSuccess }: { provider: Eip1193Prov
           You send {text} {token.symbol} on Monad to <Text style={type.mono}>{short(to)}</Text>.
         </Text>
       )}
-      <Button title="Confirm in MetaMask" icon="shield-checkmark-outline" disabled={!parsed?.ok || Boolean(over)} onPress={() => void send()} />
+      <Button title="Confirm in MetaMask" leading={<Logo kind="protocol" id="metamask" size={22} />} disabled={!parsed?.ok || Boolean(over)} onPress={() => void send()} />
     </Card>
   );
 }
@@ -294,9 +308,9 @@ const styles = StyleSheet.create({
   center: { textAlign: "center" },
   row: { flexDirection: "row", alignItems: "center", gap: space.sm },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
-  full: { color: colors.ink, backgroundColor: colors.raised, padding: space.sm, borderRadius: radius.sm },
-  linkText: { color: colors.accent, fontSize: 14, fontWeight: "500" },
-  input: { backgroundColor: colors.raised, borderRadius: radius.md, color: colors.ink, paddingHorizontal: space.md, height: 46, fontSize: 16 },
+  full: { color: colors.ink, backgroundColor: colors.raised, padding: space.sm, borderRadius: radius.sm, ...(Platform.OS === "web" ? ({ wordBreak: "break-all" } as object) : {}) },
+  linkText: { ...fonts.sansMedium, color: colors.accent, fontSize: 14 },
+  input: { ...fonts.sans, backgroundColor: colors.raised, borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line, color: colors.ink, paddingHorizontal: space.md, height: 48, fontSize: 16 },
   step: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: 2 },
   stepDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: colors.line, alignItems: "center", justifyContent: "center" },
   stepDone: { backgroundColor: colors.good, borderColor: colors.good },

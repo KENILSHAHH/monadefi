@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { Brand, Logo } from "@/components/Logo";
 import { Button, Card, confirmAction, CopyButton, KeyValue, LinkText, Notice, Pill, Screen, SectionTitle, Skeleton, haptic } from "@/components/ui";
 import { errorMessage } from "@/lib/api/client";
 import { useAuth, useAddress } from "@/lib/auth/AuthProvider";
@@ -79,12 +80,13 @@ export default function Settings() {
   }
 
   return (
-    <Screen>
-      <Text style={type.title}>Settings</Text>
-
+    <Screen title="Settings">
       <SectionTitle title="Account" />
       <Card>
-        <Text style={type.small}>Your address on Monad and every EVM chain</Text>
+        <View style={styles.line}>
+          <Logo kind="chain" id="monad" size={18} />
+          <Text style={[type.small, styles.flex]}>Your address on Monad and every EVM chain</Text>
+        </View>
         <Text style={[type.mono, styles.address]} selectable>
           {address}
         </Text>
@@ -110,6 +112,10 @@ export default function Settings() {
               />
             </View>
             <Text style={type.small}>A scoped permission that your wallet signed on this phone. The Mona-DeFi agent key uses it, and the MetaMask Delegation Framework checks it on-chain.</Text>
+            <View style={styles.brands}>
+              <Brand id="metamask" label="MetaMask Delegation Framework" />
+              <Brand id="perpl" label="Perpl" />
+            </View>
             <Text style={[type.label, styles.top]}>Mona-DeFi can</Text>
             {CAN.map((c) => (
               <ScopeLine key={c} ok text={c} />
@@ -180,7 +186,9 @@ function ScopeLine({ ok, text }: { ok: boolean; text: string }) {
 }
 
 const styles = StyleSheet.create({
-  line: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  flex: { flex: 1 },
+  line: { flexDirection: "row", alignItems: "center", gap: space.sm, minHeight: 24 },
+  brands: { flexDirection: "row", flexWrap: "wrap", gap: space.md },
   gap: { gap: space.sm },
   top: { marginTop: space.md },
   address: { marginVertical: space.sm, color: colors.ink },

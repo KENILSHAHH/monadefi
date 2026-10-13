@@ -2,10 +2,12 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect, useRef } from "react";
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button, Notice } from "@/components/ui";
+import { Aurora } from "@/components/Aurora";
+import { Brand } from "@/components/Logo";
+import { Button, Card, Notice } from "@/components/ui";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { short } from "@/lib/format";
-import { colors, radius, space, type } from "@/theme";
+import { colors, fonts, radius, space, type } from "@/theme";
 
 const POINTS: { icon: "finger-print" | "flash" | "shield-checkmark"; title: string; text: string }[] = [
   { icon: "finger-print", title: "Your passkey is your account", text: "No seed phrase, no email, no extension. Face ID or your fingerprint opens it." },
@@ -35,19 +37,26 @@ export default function Welcome() {
     state.tag === "authenticating" ? "Signing in to Mona-DeFi…" : null;
 
   return (
+    <View style={styles.root}>
+      <Aurora />
     <SafeAreaView style={styles.screen}>
       <View style={styles.top}>
         <View style={styles.logo}>
-          <Text style={styles.logoText}>P</Text>
+          <Text style={styles.logoText}>M</Text>
         </View>
         <Text style={styles.brand}>Mona-DeFi</Text>
         <Text style={[type.body, styles.tagline]}>Perps on Monad, from a passkey.</Text>
+        <View style={styles.brands}>
+          <Brand id="monad" label="Monad" />
+          <Brand id="perpl" label="Perpl" />
+          <Brand id="nansen" label="Nansen" />
+        </View>
       </View>
 
       {state.tag === "signedOut" && (
         <View style={styles.points}>
           {POINTS.map((p) => (
-            <View key={p.title} style={styles.point}>
+            <Card key={p.title} style={styles.point}>
               <View style={styles.pointIcon}>
                 <Ionicons name={p.icon} size={18} color={colors.accent} />
               </View>
@@ -55,13 +64,13 @@ export default function Welcome() {
                 <Text style={type.h2}>{p.title}</Text>
                 <Text style={type.small}>{p.text}</Text>
               </View>
-            </View>
+            </Card>
           ))}
         </View>
       )}
 
       {(state.tag === "locked" || state.tag === "authError") && (
-        <View style={styles.points}>
+        <View style={[styles.points, styles.lockBox]}>
           <Ionicons name="lock-closed" size={28} color={colors.dim} style={styles.lockIcon} />
           <Text style={[type.h2, styles.center]}>{state.tag === "authError" ? "Your account is open" : "Your account is locked"}</Text>
           {state.address && <Text style={[type.mono, styles.center, { color: colors.dim }]}>{short(state.address)}</Text>}
@@ -103,19 +112,23 @@ export default function Welcome() {
         )}
       </View>
     </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { textAlign: "center" },
-  screen: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: space.xl },
+  root: { flex: 1, backgroundColor: colors.bg, overflow: "hidden" },
+  screen: { flex: 1, paddingHorizontal: space.xl },
+  brands: { flexDirection: "row", gap: space.lg, marginTop: space.sm },
+  lockBox: { gap: space.md },
   top: { alignItems: "center", marginTop: space.xxl * 1.5, gap: space.sm },
-  logo: { width: 64, height: 64, borderRadius: 20, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" },
-  logoText: { color: "#FFFFFF", fontSize: 32, fontWeight: "800" },
-  brand: { color: colors.ink, fontSize: 34, fontWeight: "800", letterSpacing: -0.5, marginTop: space.sm },
+  logo: { width: 68, height: 68, borderRadius: 22, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", boxShadow: "0px 10px 30px rgba(131,110,249,0.45)" },
+  logoText: { ...fonts.displayBold, color: "#FFFFFF", fontSize: 34 },
+  brand: { ...fonts.displayBold, color: colors.ink, fontSize: 36, letterSpacing: -0.6, marginTop: space.sm },
   tagline: { color: colors.dim },
-  points: { flex: 1, justifyContent: "center", gap: space.xl },
+  points: { flex: 1, justifyContent: "center", gap: space.md },
   point: { flexDirection: "row", gap: space.md, alignItems: "flex-start" },
   pointIcon: { width: 36, height: 36, borderRadius: radius.md, backgroundColor: colors.accentSoft, alignItems: "center", justifyContent: "center" },
   lockIcon: { alignSelf: "center" },

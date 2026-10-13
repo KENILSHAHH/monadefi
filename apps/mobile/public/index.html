@@ -14,6 +14,20 @@
     <meta name="color-scheme" content="dark" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Coinbase fonts (licensed): served from /fonts/ by the server, not bundled. One family name per weight,
+         the same names as src/theme.ts. "font-weight: 100 900" stops the browser from drawing a fake bold. -->
+    <link rel="preload" href="/fonts/CoinbaseSans-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/CoinbaseSans-Bold.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/CoinbaseDisplay-Bold.woff2" as="font" type="font/woff2" crossorigin />
+    <style id="mona-fonts">
+      @font-face { font-family: "CoinbaseSans-Regular"; src: url("/fonts/CoinbaseSans-Regular.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+      @font-face { font-family: "CoinbaseSans-Medium"; src: url("/fonts/CoinbaseSans-Medium.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+      @font-face { font-family: "CoinbaseSans-Bold"; src: url("/fonts/CoinbaseSans-Bold.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+      @font-face { font-family: "CoinbaseDisplay-Medium"; src: url("/fonts/CoinbaseDisplay-Medium.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+      @font-face { font-family: "CoinbaseDisplay-Bold"; src: url("/fonts/CoinbaseDisplay-Bold.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+      @font-face { font-family: "CoinbaseMono-Regular"; src: url("/fonts/CoinbaseMono-Regular.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+      @font-face { font-family: "CoinbaseMono-Medium"; src: url("/fonts/CoinbaseMono-Medium.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+    </style>
     <style id="expo-reset">
       html,
       body {

@@ -4,6 +4,7 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useMemo, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { IntentConfirm } from "@/components/IntentConfirm";
+import { Brand, Logo } from "@/components/Logo";
 import { RiskCard } from "@/components/RiskCard";
 import { Button, Card, Chip, ErrorState, KeyValue, Notice, Screen, Segmented, Sheet, Skeleton, haptic } from "@/components/ui";
 import { api, ApiError, errorMessage } from "@/lib/api/client";
@@ -12,7 +13,7 @@ import { fixed, num, parseAmount, price, usd } from "@/lib/format";
 import { clampLeverage, PERPL_MIN_DEPOSIT, roughLiquidation } from "@/lib/markets";
 import { keys, useBalance, useMarkets } from "@/lib/queries";
 import { ensureSessionBefore, useTradingSession } from "@/lib/session";
-import { colors, radius, space, type } from "@/theme";
+import { colors, fonts, radius, space, type } from "@/theme";
 
 type Phase = { tag: "edit" } | { tag: "checking" } | { tag: "checked"; risk: RiskCheckResponse; forKey: string } | { tag: "previewing"; risk: RiskCheckResponse; forKey: string };
 
@@ -122,7 +123,7 @@ export default function TradeTicket() {
 
   if (!m) {
     return (
-      <Screen edges={["bottom"]}>
+      <Screen>
         <Stack.Screen options={{ title: `Trade ${symbol}` }} />
         {markets.error ? <ErrorState message={errorMessage(markets.error)} onRetry={() => void markets.refetch()} /> : <Skeleton height={300} />}
       </Screen>
@@ -132,8 +133,8 @@ export default function TradeTicket() {
   const blockedRisk = blocked?.risk ?? (risk && (risk.decision === "block" || risk.blocked) ? risk : null);
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={90}>
-      <Screen edges={["bottom"]}>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={0}>
+      <Screen>
         <Stack.Screen options={{ title: `Trade ${symbol}` }} />
 
         {trading.phase === "revoked" && (
@@ -142,12 +143,26 @@ export default function TradeTicket() {
           </Notice>
         )}
 
-        <View style={styles.priceRow}>
-          <Text style={type.small}>Mark {price(m.markPx)}</Text>
-          <Text style={type.small}>Bid {price(m.bidPx)} · Ask {price(m.askPx)}</Text>
-        </View>
+        <Card style={styles.head}>
+          <Logo kind="token" id={symbol} size={44} badge={{ kind: "protocol", id: "perpl" }} />
+          <View style={styles.flexOnly}>
+            <Text style={type.title} numberOfLines={1}>
+              {symbol}-PERP
+            </Text>
+            <Brand id="perpl" label="Perpl" />
+          </View>
+          <View style={styles.headRight}>
+            <Text style={type.numBold}>{price(m.markPx)}</Text>
+            <Text style={type.tiny}>
+              Bid {price(m.bidPx)} · Ask {price(m.askPx)}
+            </Text>
+          </View>
+        </Card>
 
-        <Segmented<Side> value={side} onChange={setSide} options={[{ value: "long", label: "Long", tone: "good" }, { value: "short", label: "Short", tone: "bad" }]} />
+        <Card style={styles.gap}>
+          <Text style={type.label}>Side</Text>
+          <Segmented<Side> value={side} onChange={setSide} options={[{ value: "long", label: "Long", tone: "good" }, { value: "short", label: "Short", tone: "bad" }]} />
+        </Card>
 
         <Card style={styles.gap}>
           <View style={styles.labelRow}>
@@ -164,7 +179,10 @@ export default function TradeTicket() {
               style={styles.amount}
               accessibilityLabel="Margin in AUSD"
             />
-            <Text style={styles.amountUnit}>AUSD</Text>
+            <View style={styles.unitRow}>
+              <Logo kind="token" id="ausd" size={20} />
+              <Text style={styles.amountUnit}>AUSD</Text>
+            </View>
           </View>
           <View style={styles.chips}>
             {[0.25, 0.5, 1].map((f) => (
@@ -172,10 +190,12 @@ export default function TradeTicket() {
             ))}
           </View>
           {margin !== null && margin < PERPL_MIN_DEPOSIT && <Text style={type.tiny}>Perpl needs at least {PERPL_MIN_DEPOSIT} AUSD in the account for the first deposit.</Text>}
+        </Card>
 
-          <View style={[styles.labelRow, styles.top]}>
+        <Card style={styles.gap}>
+          <View style={styles.labelRow}>
             <Text style={type.label}>Leverage</Text>
-            <Text style={[type.h2, { color: colors.accent }]}>{lev}x</Text>
+            <Text style={[type.title, { color: colors.accent }]}>{lev}x</Text>
           </View>
           <Slider
             minimumValue={1}
@@ -194,17 +214,26 @@ export default function TradeTicket() {
             <Text style={type.tiny}>max {maxLev}x</Text>
           </View>
 
-          <KeyValue label="Position size" value={usd(notional)} />
-          <KeyValue label="Rough liquidation" value={liq ? price(liq) : "—"} />
         </Card>
 
         <Card style={styles.gap}>
+          <Text style={type.label}>Order and exits</Text>
           <Segmented value={orderType} onChange={setOrderType} options={[{ value: "market", label: "Market" }, { value: "limit", label: "Limit" }]} />
           {orderType === "limit" && <PriceInput label="Limit price" value={limitText} onChange={setLimitText} />}
           <Toggle label="Stop-loss" value={useSl} onChange={setUseSl} />
           {useSl && <PriceInput label="Stop-loss price" value={slText} onChange={setSlText} />}
           <Toggle label="Take-profit" value={useTp} onChange={setUseTp} />
           {useTp && <PriceInput label="Take-profit price" value={tpText} onChange={setTpText} />}
+        </Card>
+
+        <Card style={styles.gap}>
+          <Text style={type.label}>Summary</Text>
+          <KeyValue label="Side" value={`${side === "long" ? "Long" : "Short"} ${lev}x · ${orderType}`} valueStyle={{ color: side === "long" ? colors.good : colors.bad }} />
+          <KeyValue label="Margin" value={margin ? `${fixed(margin, 2)} AUSD` : "—"} />
+          <KeyValue label="Position size" value={usd(notional)} valueStyle={styles.bold} />
+          <KeyValue label="Rough liquidation" value={liq ? price(liq) : "—"} />
+          {slPx ? <KeyValue label="Stop-loss" value={price(slPx)} /> : null}
+          {tpPx ? <KeyValue label="Take-profit" value={price(tpPx)} /> : null}
         </Card>
 
         {problems.length > 0 && marginText !== "" && <Notice>{problems[0]}</Notice>}
@@ -219,7 +248,7 @@ export default function TradeTicket() {
         {blocked?.risk && blocked.risk !== risk && <RiskCard risk={blocked.risk} />}
 
         {!risk ? (
-          <Button title={phase.tag === "checking" ? "Checking with Nansen…" : "Check risk"} icon="shield-checkmark-outline" loading={phase.tag === "checking"} disabled={problems.length > 0} onPress={() => void checkRisk()} />
+          <Button title={phase.tag === "checking" ? "Checking with Nansen…" : "Check risk with Nansen"} leading={phase.tag === "checking" ? undefined : <Logo kind="protocol" id="nansen" size={20} />} loading={phase.tag === "checking"} disabled={problems.length > 0} onPress={() => void checkRisk()} />
         ) : blockedRisk ? (
           <Button title="Change the trade" variant="secondary" onPress={() => setPhase({ tag: "edit" })} />
         ) : (
@@ -238,7 +267,10 @@ export default function TradeTicket() {
           <View style={styles.sheet}>
             {preview.changes.length > 0 && (
               <View style={styles.changes}>
-                <Text style={type.label}>Nansen changed your order</Text>
+                <View style={styles.unitRow}>
+                  <Logo kind="protocol" id="nansen" size={16} />
+                  <Text style={type.label}>Nansen changed your order</Text>
+                </View>
                 {preview.changes.map((c) => (
                   <Text key={c} style={type.body}>
                     {c}
@@ -280,17 +312,21 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
+  flexOnly: { flex: 1, gap: 2 },
+  head: { flexDirection: "row", alignItems: "center", gap: space.md },
+  headRight: { alignItems: "flex-end", gap: 2 },
+  unitRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  bold: { ...fonts.sansBold },
   gap: { gap: space.sm },
   top: { marginTop: space.md },
-  priceRow: { flexDirection: "row", justifyContent: "space-between" },
   labelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  amountRow: { flexDirection: "row", alignItems: "baseline", gap: space.sm },
-  amount: { flex: 1, fontSize: 36, fontWeight: "700", color: colors.ink, fontVariant: ["tabular-nums"], paddingVertical: space.xs },
-  amountUnit: { fontSize: 18, fontWeight: "600", color: colors.dim },
+  amountRow: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  amount: { ...fonts.displayBold, flex: 1, minWidth: 0, fontSize: 38, color: colors.ink, fontVariant: ["tabular-nums"], paddingVertical: space.xs },
+  amountUnit: { ...fonts.display, fontSize: 18, color: colors.dim },
   chips: { flexDirection: "row", gap: space.sm },
   priceInput: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md },
-  priceField: { minWidth: 140, textAlign: "right", fontSize: 17, color: colors.ink, backgroundColor: colors.raised, borderRadius: radius.sm, paddingHorizontal: space.md, height: 42, fontVariant: ["tabular-nums"] },
-  toggle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 40 },
+  priceField: { ...fonts.sansMedium, minWidth: 140, textAlign: "right", fontSize: 17, color: colors.ink, backgroundColor: colors.raised, borderRadius: radius.sm, paddingHorizontal: space.md, height: 42, fontVariant: ["tabular-nums"] },
+  toggle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44 },
   sheet: { gap: space.md, paddingBottom: space.md },
   changes: { gap: space.sm, backgroundColor: colors.warnSoft, padding: space.md, borderRadius: radius.md },
 });

@@ -1,23 +1,36 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { AppState, Platform, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { GlassFill } from "@/components/Glass";
 import { showToast, ToastHost } from "@/components/Toast";
 import { ApiError } from "@/lib/api/client";
 import { AuthProvider, useAuth } from "@/lib/auth/AuthProvider";
 import { keys } from "@/lib/queries";
 import { ensureSession, sessionManager } from "@/lib/session";
-import { colors } from "@/theme";
+import { FONT_FILES } from "@/lib/fonts";
+import { colors, fonts } from "@/theme";
 
+// Native: keep the splash screen until the fonts are in (web loads them with @font-face, see public/index.html).
+if (Platform.OS !== "web") void SplashScreen.preventAutoHideAsync().catch(() => undefined);
+const hasFonts = Object.keys(FONT_FILES).length > 0;
+
+/**
+ * Stack headers are glass: transparent, with a blurred fill behind the title. The screen content starts below the
+ * header (components/ui Screen reads the header height) and scrolls under it.
+ */
 const header = {
   headerShown: true,
-  headerStyle: { backgroundColor: colors.bg },
+  headerTransparent: true,
+  headerBackground: () => <GlassFill tone="bar" />,
   headerTintColor: colors.ink,
   headerShadowVisible: false,
   headerBackButtonDisplayMode: "minimal" as const,
-  headerTitleStyle: { fontWeight: "600" as const },
+  headerTitleStyle: { ...fonts.sansBold, fontSize: 17, color: colors.ink } as { fontFamily?: string; fontSize: number; color: string },
 };
 
 function RootStack() {
@@ -26,7 +39,7 @@ function RootStack() {
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
       <Stack.Protected guard={ready}>
-        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(tabs)" options={{ title: "Mona-DeFi" }} />
         <Stack.Screen name="market/[symbol]" options={{ ...header, title: "" }} />
         <Stack.Screen name="trade/[symbol]" options={{ ...header, title: "Trade" }} />
         <Stack.Screen name="deposit" options={{ ...header, title: "Add funds", presentation: "modal" }} />
@@ -72,6 +85,11 @@ function SessionAutopilot() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts(hasFonts ? FONT_FILES : {});
+  const ready = !hasFonts || fontsLoaded || Boolean(fontError);
+  useEffect(() => {
+    if (ready && Platform.OS !== "web") SplashScreen.hide();
+  }, [ready]);
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -84,6 +102,7 @@ export default function RootLayout() {
         },
       }),
   );
+  if (!ready) return null;
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>

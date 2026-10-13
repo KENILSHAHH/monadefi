@@ -2,7 +2,7 @@
  * Northern lights behind the main screens (native). Three large soft blobs (SVG radial gradients) in Monad purple,
  * teal and a hint of green drift and change shape in slow 20–40 s loops at low opacity.
  * Only transform and opacity animate, on the native driver. Reduced motion: a static picture.
- * The web build uses Aurora.web.tsx (CSS).
+ * The web build uses Aurora.web.tsx (CSS). The layer is drawn once per screen, on that screen's opaque background.
  */
 import { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, Easing, StyleSheet, useWindowDimensions, View } from "react-native";
@@ -12,9 +12,9 @@ type BlobSpec = { id: string; color: string; alpha: number; size: number; x: num
 
 // Positions and sizes are fractions of the screen width/height.
 const BLOBS: BlobSpec[] = [
-  { id: "purple", color: "#836EF9", alpha: 0.34, size: 1.25, x: -0.35, y: -0.2, dx: 0.25, dy: 0.12, sx: 1.18, sy: 0.88, duration: 32_000 },
-  { id: "teal", color: "#22D3C5", alpha: 0.2, size: 1.1, x: 0.3, y: 0.05, dx: -0.22, dy: 0.18, sx: 0.9, sy: 1.15, duration: 26_000 },
-  { id: "green", color: "#34E89E", alpha: 0.1, size: 0.95, x: -0.1, y: 0.45, dx: 0.18, dy: -0.14, sx: 1.12, sy: 0.92, duration: 38_000 },
+  { id: "purple", color: "#836EF9", alpha: 0.42, size: 1.25, x: -0.35, y: -0.2, dx: 0.25, dy: 0.12, sx: 1.18, sy: 0.88, duration: 32_000 },
+  { id: "teal", color: "#22D3C5", alpha: 0.26, size: 1.1, x: 0.3, y: 0.05, dx: -0.22, dy: 0.18, sx: 0.9, sy: 1.15, duration: 26_000 },
+  { id: "green", color: "#34E89E", alpha: 0.15, size: 0.95, x: -0.1, y: 0.45, dx: 0.18, dy: -0.14, sx: 1.12, sy: 0.92, duration: 38_000 },
 ];
 
 export function useReducedMotion(): boolean {
@@ -80,10 +80,14 @@ function Blob({ spec, width, height, still }: { spec: BlobSpec; width: number; h
   );
 }
 
-/** Put it first inside a container with the page color; the screens above it need a transparent background. */
-export function Aurora() {
+/**
+ * Put it first inside each screen's root container, which has the opaque page color (components/ui Screen).
+ * So a screen never needs a transparent scene, and a hidden screen can never show through another one.
+ * `paused`: a screen that is not focused stops its loops.
+ */
+export function Aurora({ paused = false }: { paused?: boolean }) {
   const { width, height } = useWindowDimensions();
-  const reduced = useReducedMotion();
+  const reduced = useReducedMotion() || paused;
   return (
     <View style={styles.layer} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       {BLOBS.map((b) => (

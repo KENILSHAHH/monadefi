@@ -12,6 +12,7 @@
     "@tanstack/react-query": "^5.104.2",
     "expo": "~57.0.28",
     "expo-audio": "~57.0.5",
+    "expo-blur": "~57.0.3",
     "expo-build-properties": "~57.0.22",
     "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.21",
@@ -47,15 +48,17 @@
   },
   "scripts": {
     "start": "expo start --dev-client",
-    "ios": "expo run:ios",
-    "android": "expo run:android",
+    "ios": "node scripts/gen-fonts.mjs && expo run:ios",
+    "android": "node scripts/gen-fonts.mjs && expo run:android",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "doctor": "expo-doctor",
-    "export:ios": "expo export --platform ios",
-    "export:web": "expo export --platform web",
-    "prebuild": "expo prebuild --clean"
+    "export:ios": "node scripts/gen-fonts.mjs && expo export --platform ios",
+    "export:web": "node scripts/gen-fonts.mjs && expo export --platform web",
+    "prebuild": "node scripts/gen-fonts.mjs && expo prebuild --clean",
+    "postinstall": "node scripts/gen-fonts.mjs",
+    "fonts": "node scripts/gen-fonts.mjs"
   },
   "private": true,
   "jest": {

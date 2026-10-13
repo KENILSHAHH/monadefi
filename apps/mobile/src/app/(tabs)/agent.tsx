@@ -1,13 +1,14 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Easing, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { ActivityIndicator, Animated, Easing, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { StepLine, StepsSummary } from "@/components/AgentSteps";
+import { Glass, GlassFill } from "@/components/Glass";
 import { IntentConfirm } from "@/components/IntentConfirm";
+import { Brand } from "@/components/Logo";
 import { Markdown } from "@/components/Markdown";
-import { Card, Notice, haptic } from "@/components/ui";
+import { Card, IconButton, Notice, Screen, haptic, useScreenInsets } from "@/components/ui";
 import { api, ApiError, errorMessage } from "@/lib/api/client";
 import type { AgentEvent, Intent } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -19,7 +20,7 @@ import { clock, HOLD_MIN_MS, intentResultSentence, MAX_RECORD_MS, SEND_DELAY_MS,
 import { speakBytes } from "@/lib/voice/http";
 import { playMp3, stopPlayback, unlockAudio } from "@/lib/voice/player";
 import { useVoiceRecorder } from "@/lib/voice/useRecorder";
-import { colors, radius, space, type } from "@/theme";
+import { colors, fonts, radius, space, type } from "@/theme";
 
 const SUGGESTIONS = [
   "Open a 3x long on ETH with 20 AUSD, stop-loss 5% below.",
@@ -29,6 +30,21 @@ const SUGGESTIONS = [
 ];
 
 const native = Platform.OS !== "web";
+
+/** True while the software keyboard is open (native). The input bar then sits on the keyboard, not on the tab bar. */
+function useKeyboardOpen() {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!native) return;
+    const show = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", () => setOpen(true));
+    const hide = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => setOpen(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  return open;
+}
 
 export default function Agent() {
   const { token, renewToken } = useAuth();
@@ -227,30 +243,48 @@ export default function Agent() {
   const recording = recorder.phase === "recording" || recorder.phase === "starting";
   const transcribing = recorder.phase === "transcribing";
 
+  const headerRight = (
+    <>
+      <IconButton icon={speakOn ? "volume-high-outline" : "volume-mute-outline"} label="Spoken replies" onPress={toggleSpeak} color={speakOn ? colors.accent : colors.dim} active={speakOn} />
+      {messages.length > 0 && (
+        <IconButton icon="create-outline" label="New chat" onPress={() => { stop(); stopSpeaking(); setMessages([]); sessionId.current = null; }} color={colors.dim} />
+      )}
+    </>
+  );
+
   return (
-    <SafeAreaView style={styles.screen} edges={["top"]}>
-      <View style={styles.header}>
-        <Text style={type.title}>Agent</Text>
-        <View style={styles.headerRight}>
-          <Pressable onPress={toggleSpeak} hitSlop={10} accessibilityRole="switch" accessibilityState={{ checked: speakOn }} accessibilityLabel="Spoken replies">
-            <Ionicons name={speakOn ? "volume-high-outline" : "volume-mute-outline"} size={22} color={speakOn ? colors.accent : colors.dim} />
-          </Pressable>
-          {messages.length > 0 && (
-            <Pressable onPress={() => { stop(); stopSpeaking(); setMessages([]); sessionId.current = null; }} hitSlop={10} accessibilityRole="button" accessibilityLabel="New chat">
-              <Ionicons name="create-outline" size={22} color={colors.dim} />
-            </Pressable>
-          )}
-        </View>
-      </View>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}>
-        <ScrollView ref={scroll} contentContainerStyle={styles.list} onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })} keyboardShouldPersistTaps="handled">
+    <Screen title="Agent" right={headerRight} scroll={false}>
+      <AgentBody>
+        {({ top, bottom, keyboard }) => (
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView
+          ref={scroll}
+          style={styles.flex}
+          contentContainerStyle={[styles.list, { paddingTop: top + space.lg }]}
+          scrollIndicatorInsets={{ top }}
+          onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
+          keyboardShouldPersistTaps="handled"
+        >
           {messages.length === 0 && (
             <View style={styles.empty}>
-              <Text style={[type.small, styles.center]}>Ask in plain words, or hold the mic and speak. The agent prepares orders. You confirm each one here.</Text>
+              <View style={styles.hello}>
+                <View style={styles.helloIcon}>
+                  <Ionicons name="sparkles" size={22} color={colors.accent} />
+                </View>
+                <Text style={[type.title, styles.center]}>Ask Mona</Text>
+                <Text style={[type.small, styles.center]}>Ask in plain words, or hold the mic and speak. The agent prepares orders. You confirm each one here.</Text>
+                <View style={styles.helloBrands}>
+                  <Brand id="perpl" label="Perpl" />
+                  <Brand id="nansen" label="Nansen" />
+                  <Brand id="deepgram" label="Deepgram" />
+                </View>
+              </View>
               {SUGGESTIONS.map((s) => (
-                <Pressable key={s} onPress={() => void send(s)} style={styles.suggestion} accessibilityRole="button">
-                  <Text style={type.body}>{s}</Text>
-                </Pressable>
+                <Card key={s} onPress={() => void send(s)} style={styles.suggestion} accessibilityLabel={s}>
+                  <Ionicons name="chatbubble-outline" size={16} color={colors.accent} />
+                  <Text style={[type.body, styles.flex]}>{s}</Text>
+                  <Ionicons name="arrow-up-circle" size={20} color={colors.faint} />
+                </Card>
               ))}
             </View>
           )}
@@ -278,7 +312,8 @@ export default function Agent() {
           />
         )}
 
-        <View style={styles.inputBar}>
+        <View style={[styles.inputBar, { paddingBottom: (keyboard ? 0 : bottom) + space.md }]}>
+          <GlassFill tone="bar" />
           {recording ? (
             <View style={styles.recordBar}>
               <Pressable onPress={cancelMic} hitSlop={10} style={styles.cancel} accessibilityRole="button" accessibilityLabel="Cancel the recording">
@@ -307,6 +342,7 @@ export default function Agent() {
               placeholderTextColor={colors.faint}
               style={styles.input}
               multiline
+              numberOfLines={native ? undefined : 1}
               accessibilityLabel="Message"
             />
           )}
@@ -334,8 +370,17 @@ export default function Agent() {
             ))}
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+        )}
+      </AgentBody>
+    </Screen>
   );
+}
+
+/** Gives the agent layout the header and tab bar padding, and the keyboard state. */
+function AgentBody({ children }: { children: (v: { top: number; bottom: number; keyboard: boolean }) => ReactNode }) {
+  const { top, bottom } = useScreenInsets();
+  const keyboard = useKeyboardOpen();
+  return <>{children({ top, bottom, keyboard })}</>;
 }
 
 /** A red dot that pulses while the mic records. */
@@ -405,7 +450,7 @@ function Message({ message, streaming, onSettled }: { message: ChatMessage; stre
     return (
       <View style={styles.userBubble}>
         {message.voice && <Ionicons name="mic" size={13} color="rgba(255,255,255,0.8)" style={styles.userMic} />}
-        <Text style={[type.body, { color: "#FFFFFF" }]}>{text}</Text>
+        <Text style={[type.body, styles.userText]}>{text}</Text>
       </View>
     );
   }
@@ -415,7 +460,11 @@ function Message({ message, streaming, onSettled }: { message: ChatMessage; stre
       {streaming ? <StepLine message={message} startedAt={message.startedAt ?? Date.now()} /> : <StepsSummary message={message} durationMs={duration} />}
       {message.parts.map((p, i) =>
         p.kind === "text" ? (
-          <Markdown key={i} text={p.text} />
+          p.text.trim() ? (
+            <Glass key={i} radius={radius.lg} style={styles.assistantBubble}>
+              <Markdown text={p.text} />
+            </Glass>
+          ) : null
         ) : p.kind === "intent" ? (
           <Card key={p.intent.id} style={styles.intent}>
             <IntentConfirm intent={p.intent} compact onSettled={onSettled} />
@@ -430,25 +479,28 @@ function Message({ message, streaming, onSettled }: { message: ChatMessage; stre
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { textAlign: "center" },
-  screen: { flex: 1, backgroundColor: "transparent" },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: space.lg, paddingBottom: space.sm },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: space.lg },
-  list: { padding: space.lg, gap: space.md, paddingBottom: space.xl },
-  empty: { gap: space.sm, marginTop: space.xl },
-  suggestion: { backgroundColor: colors.panel, borderRadius: radius.md, padding: space.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
-  userBubble: { alignSelf: "flex-end", maxWidth: "85%", backgroundColor: colors.accent, borderRadius: radius.lg, borderBottomRightRadius: 4, paddingHorizontal: space.md, paddingVertical: space.sm, flexDirection: "row", gap: 6 },
+  list: { paddingHorizontal: space.lg, gap: space.md, paddingBottom: space.lg },
+  empty: { gap: space.md },
+  hello: { alignItems: "center", gap: space.sm, paddingVertical: space.lg, paddingHorizontal: space.md },
+  helloIcon: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center", backgroundColor: colors.accentSoft, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(131,110,249,0.5)", marginBottom: space.xs },
+  helloBrands: { flexDirection: "row", gap: space.lg, marginTop: space.xs, flexWrap: "wrap", justifyContent: "center" },
+  suggestion: { flexDirection: "row", alignItems: "center", gap: space.md, minHeight: 56, paddingVertical: space.md },
+  userBubble: { alignSelf: "flex-end", maxWidth: "85%", backgroundColor: colors.accent, borderRadius: radius.lg, borderBottomRightRadius: 6, paddingHorizontal: space.md + 2, paddingVertical: space.sm + 2, flexDirection: "row", gap: 6, boxShadow: "0px 6px 18px rgba(131,110,249,0.30)" },
+  userText: { color: "#FFFFFF" },
   userMic: { marginTop: 4 },
-  assistant: { gap: space.sm },
-  intent: { borderColor: colors.accent },
+  assistant: { gap: space.sm, alignItems: "stretch" },
+  assistantBubble: { paddingHorizontal: space.lg, paddingVertical: space.md, borderTopLeftRadius: 6, alignSelf: "flex-start", maxWidth: "100%" },
+  intent: { borderColor: "rgba(131,110,249,0.6)" },
   banner: { paddingHorizontal: space.md, paddingBottom: space.sm },
-  inputBar: { flexDirection: "row", alignItems: "flex-end", gap: space.sm, padding: space.md, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.line, backgroundColor: colors.bg },
-  input: { flex: 1, minHeight: 44, maxHeight: 120, backgroundColor: colors.panel, borderRadius: radius.lg, color: colors.ink, paddingHorizontal: space.lg, paddingTop: 12, paddingBottom: 12, fontSize: 16 },
-  recordBar: { flex: 1, minHeight: 44, flexDirection: "row", alignItems: "center", gap: space.sm, backgroundColor: colors.panel, borderRadius: radius.lg, paddingHorizontal: space.sm },
+  inputBar: { flexDirection: "row", alignItems: "flex-end", gap: space.sm, paddingHorizontal: space.md, paddingTop: space.md, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
+  // position: relative keeps the field above the glass fill on web.
+  input: { ...fonts.sans, position: "relative", flex: 1, minHeight: 44, maxHeight: 120, backgroundColor: "rgba(255,255,255,0.07)", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line, borderRadius: 22, color: colors.ink, paddingHorizontal: space.lg, paddingTop: 12, paddingBottom: 12, fontSize: 16 },
+  recordBar: { flex: 1, minHeight: 44, flexDirection: "row", alignItems: "center", gap: space.sm, backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 22, paddingHorizontal: space.sm },
   cancel: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: colors.raised },
   recDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.bad },
   recTime: { minWidth: 40 },
   send: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" },
-  mic: { backgroundColor: colors.raised },
+  mic: { backgroundColor: "rgba(255,255,255,0.08)", borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
   micOn: { backgroundColor: colors.bad, transform: [{ scale: 1.08 }] },
   noSelect: { userSelect: "none" } as object,
   disabled: { opacity: 0.4 },

@@ -4,7 +4,7 @@ import { Animated, Platform, StyleSheet, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, space, type } from "@/theme";
 
-/** A one-line, non-blocking message at the top of the screen. It does not take touches. */
+/** A one-line, non-blocking message near the bottom, above the tab bar, so it never covers a title. It does not take touches. */
 type ToastMsg = { id: number; text: string; tone: "good" | "accent" | "bad" };
 
 let next = 1;
@@ -39,7 +39,7 @@ export function ToastHost() {
   if (!toast) return null;
   const color = toast.tone === "good" ? colors.good : toast.tone === "bad" ? colors.bad : colors.accent;
   return (
-    <Animated.View pointerEvents="none" style={[styles.wrap, { top: insets.top + space.sm, opacity }]} accessibilityLiveRegion="polite" accessibilityRole="alert">
+    <Animated.View pointerEvents="none" style={[styles.wrap, { bottom: insets.bottom + 84, opacity }]} accessibilityLiveRegion="polite" accessibilityRole="alert">
       <Ionicons name={toast.tone === "bad" ? "alert-circle" : "checkmark-circle"} size={16} color={color} />
       <Text style={[type.small, styles.text]} numberOfLines={2}>
         {toast.text}
@@ -57,8 +57,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: space.sm,
-    backgroundColor: colors.raised,
-    borderColor: colors.line,
+    backgroundColor: "rgba(22,24,32,0.94)",
+    borderColor: "rgba(255,255,255,0.10)",
+    boxShadow: "0px 8px 24px rgba(0,0,0,0.45)",
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radius.lg,
     paddingHorizontal: space.lg,

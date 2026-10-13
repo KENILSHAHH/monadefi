@@ -3,7 +3,7 @@ const trimSlash = (s: string) => s.replace(/\/+$/, "");
 
 export const config = {
   apiUrl: trimSlash(process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8787"),
-  rpId: process.env.EXPO_PUBLIC_RP_ID ?? "app.3-83-183-92.sslip.io",
+  rpId: process.env.EXPO_PUBLIC_RP_ID ?? "mona-defi.vercel.app",
   monadRpc: process.env.EXPO_PUBLIC_MONAD_RPC ?? "https://rpc.monad.xyz",
   chainId: 143,
   explorer: "https://monadscan.com",

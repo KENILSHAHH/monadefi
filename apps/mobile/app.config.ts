@@ -5,7 +5,7 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
  * The same value must be in EXPO_PUBLIC_RP_ID at build time, in the iOS associated domains,
  * and on the domain in /.well-known/apple-app-site-association and /.well-known/assetlinks.json.
  */
-const RP_ID = process.env.EXPO_PUBLIC_RP_ID ?? "app.3-83-183-92.sslip.io";
+const RP_ID = process.env.EXPO_PUBLIC_RP_ID ?? "mona-defi.vercel.app";
 const BUNDLE_ID = process.env.MONADEFI_BUNDLE_ID ?? "xyz.monadefi.app";
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
